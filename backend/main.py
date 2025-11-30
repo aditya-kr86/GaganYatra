@@ -29,19 +29,23 @@ def create_tables_on_startup():
     finally:
         db.close()
 
-
-app.include_router(flight_router, prefix="/flights", tags=["Flight Search"])
-app.include_router(booking_router, prefix="/bookings", tags=["Bookings"])
-app.include_router(payment_router, prefix="/payments", tags=["Payments"])
-app.include_router(airport_router, prefix="/airports", tags=["Airports"])
-app.include_router(airline_router, prefix="/airlines", tags=["Airlines"])
-app.include_router(aircraft_router, prefix="/aircrafts", tags=["Aircrafts"])
-app.include_router(user_router, prefix="/users", tags=["Users"])
-app.include_router(seat_router, prefix="/seats", tags=["Seats"])
-app.include_router(ticket_router, prefix="/tickets", tags=["Tickets"])
-
-
 @app.get("/")
 def root():
     return {"message": "welcome to GaganYatra - Flight Booking"}
+
+app.include_router(airline_router, prefix="/airlines", tags=["Airlines"])
+app.include_router(airport_router, prefix="/airports", tags=["Airports"])
+app.include_router(aircraft_router, prefix="/aircrafts", tags=["Aircrafts"])
+app.include_router(seat_router, prefix="/seats", tags=["Seats"])
+
+app.include_router(user_router, prefix="/users", tags=["Users"])
+
+app.include_router(flight_router, prefix="/flights", tags=["Flight Search"])
+
+app.include_router(booking_router, prefix="/bookings", tags=["Bookings"])
+app.include_router(payment_router, prefix="/payments", tags=["Payments"])
+
+app.include_router(ticket_router, prefix="/tickets", tags=["Tickets"])
+
+
 

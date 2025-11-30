@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime
+from datetime import datetime, timedelta
 import secrets
 import uuid
 
@@ -14,9 +14,10 @@ from app.models.ticket import Ticket
 from app.models.payment import Payment
 from app.models.user import User
 from app.models.aircraft import Aircraft
+from app.models.aircraft_seat_template import AircraftSeatTemplate
 
 
-def search_flights(db: Session, origin: str | None = None, destination: str | None = None, date: str | None = None, sort_by: str | None = None, limit: int | None = None):
+def search_flights(db: Session, origin: str | None = None, destination: str | None = None, date: str | None = None, sort_by: str | None = None, limit: int | None = None, days_flex: int = 0):
     """Search flights with optional filters. Returns list of dicts matching `FlightResponse` schema.
 
     origin/destination: airport codes (e.g., 'DEL')
@@ -35,8 +36,18 @@ def search_flights(db: Session, origin: str | None = None, destination: str | No
         query = query.filter(Flight.arrival_airport.has(Airport.code == destination))
 
     if date:
-        # match date with SQLite's strftime
-        query = query.filter(func.strftime('%Y-%m-%d', Flight.departure_time) == date)
+        # Match any departure_time within the calendar date range (00:00:00 <= dt < next day)
+        try:
+            d_obj = datetime.strptime(date, "%Y-%m-%d")
+        except Exception:
+            # if parsing fails, leave filter as-is (route already validates format)
+            d_obj = None
+
+        if d_obj:
+            # expand range by days_flex
+            start = d_obj - timedelta(days=abs(int(days_flex)))
+            end = d_obj + timedelta(days=abs(int(days_flex)) + 1)
+            query = query.filter(Flight.departure_time >= start, Flight.departure_time < end)
 
     # Apply sorting
     if sort_by == "price":
@@ -104,14 +115,50 @@ def create_flight(db: Session, airline_id: int, aircraft_id: int, flight_number:
     db.commit()
     db.refresh(flight)
 
-    # auto-create seats based on the aircraft capacity (if aircraft exists)
+    # auto-create seats based on the aircraft capacity or per-class counts (if aircraft exists)
     aircraft = db.query(Aircraft).filter(Aircraft.id == aircraft_id).first()
     if aircraft and getattr(aircraft, 'capacity', None):
         seats_to_create = []
-        cap = int(aircraft.capacity)
-        # simple seat numbering: 1..capacity
-        for i in range(1, cap + 1):
-            seats_to_create.append(Seat(flight_id=flight.id, seat_number=str(i), seat_class="Economy", is_available=True))
+        # If an aircraft seat template exists, use it as the source of truth
+        templates = db.query(AircraftSeatTemplate).filter(AircraftSeatTemplate.aircraft_id == aircraft.id).order_by(AircraftSeatTemplate.id.asc()).all()
+        if templates:
+            for tpl in templates:
+                seats_to_create.append(Seat(flight_id=flight.id, seat_number=tpl.seat_number, seat_class=tpl.seat_class, is_available=True))
+        else:
+            # prefer per-class counts when provided
+            eco = int(getattr(aircraft, 'economy_count', 0) or 0)
+            prem = int(getattr(aircraft, 'premium_economy_count', 0) or 0)
+            bus = int(getattr(aircraft, 'business_count', 0) or 0)
+            first = int(getattr(aircraft, 'first_count', 0) or 0)
+
+            sum_counts = eco + prem + bus + first
+            if sum_counts > 0:
+                cap = sum_counts
+            else:
+                cap = int(aircraft.capacity)
+
+            # Build seats by class blocks. Order: First, Business, Premium Economy, Economy
+            idx = 1
+            def add_block(count, cls_name):
+                nonlocal idx
+                for _ in range(count):
+                    seats_to_create.append(Seat(flight_id=flight.id, seat_number=str(idx), seat_class=cls_name, is_available=True))
+                    idx += 1
+
+            if first > 0:
+                add_block(first, "First")
+            if bus > 0:
+                add_block(bus, "Business")
+            if prem > 0:
+                add_block(prem, "Premium Economy")
+            if eco > 0:
+                add_block(eco, "Economy")
+
+            # fallback: if no per-class counts and capacity set, create all Economy
+            if not seats_to_create:
+                for i in range(1, cap + 1):
+                    seats_to_create.append(Seat(flight_id=flight.id, seat_number=str(i), seat_class="Economy", is_available=True))
+
         if seats_to_create:
             db.add_all(seats_to_create)
             db.commit()
@@ -120,7 +167,7 @@ def create_flight(db: Session, airline_id: int, aircraft_id: int, flight_number:
     return flight
 
 
-def create_booking(db: Session, user_id: int, flight_id: int, passengers: list[dict], seat_ids: list[int] | None = None, seat_class: str | None = None) -> Booking:
+def create_booking(db: Session, user_id: int, flight_id: int, passengers: list[dict], seat_class: str | None = None) -> Booking:
     """Create booking for multiple passengers.
 
     `passengers` is a list of dicts containing passenger_name, age, gender.
@@ -131,40 +178,12 @@ def create_booking(db: Session, user_id: int, flight_id: int, passengers: list[d
     if not flight:
         raise ValueError("flight not found")
 
-    # Prepare seats: if seat_ids provided validate each; else allocate sequentially
-    allocated_seats = []
-    if seat_ids:
-        if len(seat_ids) != len(passengers):
-            raise ValueError("seat_ids length must match passengers length")
-        for sid in seat_ids:
-            s = db.query(Seat).filter(Seat.id == sid, Seat.flight_id == flight_id, Seat.is_available == True).first()
-            if not s:
-                raise ValueError(f"requested seat {sid} not available")
-            allocated_seats.append(s)
-    else:
-        # allocate next available seats; if seat_class provided, restrict by class
-        if seat_class:
-            # match seat_class case-insensitively (e.g. 'economy', 'Economy', 'ECONOMY')
-            cls_norm = seat_class.strip().lower()
-            available = db.query(Seat).filter(
-                Seat.flight_id == flight_id,
-                Seat.is_available == True,
-                func.lower(Seat.seat_class) == cls_norm
-            ).order_by(Seat.id.asc()).limit(len(passengers)).all()
-        else:
-            available = db.query(Seat).filter(Seat.flight_id == flight_id, Seat.is_available == True).order_by(Seat.id.asc()).limit(len(passengers)).all()
-
-        if len(available) < len(passengers):
-            raise ValueError("not enough seats available")
-        allocated_seats = available
-
-    # mark seats unavailable
-    for s in allocated_seats:
-        s.is_available = False
-
+    # Seats are not allocated at booking time — allocation happens after successful payment.
     # create booking
-    pnr = _generate_pnr(db)
-    booking = Booking(user_id=user_id, pnr=pnr, status="Confirmed")
+    # Create a provisional booking reference to be used for payment.
+    booking_ref = "BKG" + uuid.uuid4().hex[:12].upper()
+    # PNR will be generated after successful payment
+    booking = Booking(user_id=user_id, pnr=None, booking_reference=booking_ref, status="Payment Pending")
     db.add(booking)
     db.flush()
 
@@ -174,29 +193,32 @@ def create_booking(db: Session, user_id: int, flight_id: int, passengers: list[d
 
     # create tickets for each passenger
     for idx, p in enumerate(passengers):
-        seat = allocated_seats[idx]
+        # tickets created without seat assignment; seats will be allocated after successful payment
         ticket = Ticket(
-            booking_id=booking.id,
-            flight_id=flight.id,
-            seat_id=seat.id,
-            passenger_name=p.get("passenger_name"),
-            passenger_age=p.get("age"),
-            passenger_gender=p.get("gender"),
-            airline_name=airline.name if airline else "",
-            flight_number=flight.flight_number,
-            route=f"{dep.code if dep else ''}-{arr.code if arr else ''}",
-            departure_airport=dep.code if dep else "",
-            arrival_airport=arr.code if arr else "",
-            departure_city=dep.city if dep and hasattr(dep, 'city') else "",
-            arrival_city=arr.city if arr and hasattr(arr, 'city') else "",
-            departure_time=flight.departure_time,
-            arrival_time=flight.arrival_time,
-            seat_number=seat.seat_number,
-            seat_class=seat.seat_class,
-            # allow per-passenger fare override if provided in payload
-            price_paid=p.get("fare") if p.get("fare") is not None else flight.base_price,
-            currency=p.get("currency") if p.get("currency") else "INR",
-            ticket_number=("TKT" + uuid.uuid4().hex[:12].upper())
+        booking_id=booking.id,
+        flight_id=flight.id,
+        seat_id=None,
+        passenger_name=p.get("passenger_name"),
+        passenger_age=p.get("age"),
+        passenger_gender=p.get("gender"),
+        airline_name=airline.name if airline else "",
+        flight_number=flight.flight_number,
+        route=f"{dep.code if dep else ''}-{arr.code if arr else ''}",
+        departure_airport=dep.code if dep else "",
+        arrival_airport=arr.code if arr else "",
+        departure_city=dep.city if dep and hasattr(dep, 'city') else "",
+        arrival_city=arr.city if arr and hasattr(arr, 'city') else "",
+        departure_time=flight.departure_time,
+        arrival_time=flight.arrival_time,
+        # DB schema may still enforce NOT NULL for seat_number until migrations run.
+        # Use an empty string placeholder for provisional tickets.
+        seat_number="",
+        seat_class=seat_class if seat_class else "Economy",
+        # allow per-passenger fare override if provided in payload
+        price_paid=p.get("fare") if p.get("fare") is not None else flight.base_price,
+        currency=p.get("currency") if p.get("currency") else "INR",
+        # ticket_number will be generated only after payment
+        ticket_number=None
         )
         db.add(ticket)
 
@@ -231,16 +253,76 @@ def cancel_booking(db: Session, pnr: str) -> Booking | None:
     return booking
 
 
-def create_payment(db: Session, booking_id: int, amount: float, method: str) -> Payment:
-    tx = Payment(booking_id=booking_id, amount=amount, method=method, status="Success", transaction_id=str(uuid.uuid4()))
+def create_payment(db: Session, booking_reference: str, amount: float, method: str) -> Payment:
+    # lookup booking by booking_reference (booking_id removed from API)
+    booking = db.query(Booking).filter(Booking.booking_reference == str(booking_reference)).first()
+
+    if not booking:
+        raise ValueError("booking not found")
+
+    # compute required amount from booking tickets
+    required = 0.0
+    for t in booking.tickets:
+        required += float(t.price_paid or 0)
+
+    tx = Payment(booking_id=booking.id, amount=amount, method=method, transaction_id=str(uuid.uuid4()))
+
+    # simple validation: require at least the required amount to confirm
+    if amount < required:
+        tx.status = "Failed"
+        db.add(tx)
+        db.commit()
+        db.refresh(tx)
+        return tx
+    # before marking success, ensure seats are available for requested classes
+    # compute needed per class
+    needed_by_class: dict[str, int] = {}
+    for t in booking.tickets:
+        cls = (t.seat_class or "Economy").strip()
+        needed_by_class[cls] = needed_by_class.get(cls, 0) + 1
+
+    for cls, needed in needed_by_class.items():
+        cls_norm = cls.strip().lower()
+        avail = db.query(func.count(Seat.id)).filter(Seat.flight_id == booking.tickets[0].flight_id, Seat.is_available == True, func.lower(Seat.seat_class) == cls_norm).scalar() or 0
+        if avail < needed:
+            tx.status = "Failed"
+            db.add(tx)
+            db.commit()
+            db.refresh(tx)
+            return tx
+
+    # amount sufficient and seats available -> success
+    tx.status = "Success"
     db.add(tx)
     db.commit()
     db.refresh(tx)
-    # link to booking status
-    booking = db.query(Booking).filter(Booking.id == booking_id).first()
-    if booking and tx.status == "Success":
-        booking.status = "Confirmed"
-        db.commit()
+
+    # allocate seats and issue tickets
+    booking.status = "Confirmed"
+    booking.pnr = _generate_pnr(db)
+
+    for t in booking.tickets:
+        # allocate next available seat for this ticket's class
+        cls_norm = (t.seat_class or "Economy").strip().lower()
+        seat = db.query(Seat).filter(Seat.flight_id == t.flight_id, Seat.is_available == True, func.lower(Seat.seat_class) == cls_norm).order_by(Seat.id.asc()).with_for_update().first()
+        if not seat:
+            # this should not happen because we checked availability earlier; treat as failure
+            tx.status = "Failed"
+            db.add(tx)
+            db.commit()
+            db.refresh(tx)
+            return tx
+        seat.is_available = False
+        t.seat_id = seat.id
+        t.seat_number = seat.seat_number
+        if not t.ticket_number:
+            t.ticket_number = "TKT" + uuid.uuid4().hex[:12].upper()
+        if not t.issued_at:
+            t.issued_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(booking)
+
     return tx
 
 
@@ -260,12 +342,44 @@ def ensure_all_flight_seats(db: Session) -> int:
         existing = db.query(Seat).filter(Seat.flight_id == flight.id).first()
         if existing:
             continue
-        # create seats from aircraft
+        # create seats from aircraft counts or templates (use same logic as create_flight)
         aircraft = db.query(Aircraft).filter(Aircraft.id == flight.aircraft_id).first()
         if not aircraft or not getattr(aircraft, 'capacity', None):
             continue
-        cap = int(aircraft.capacity)
-        seats_to_create = [Seat(flight_id=flight.id, seat_number=str(i), seat_class="Economy", is_available=True) for i in range(1, cap+1)]
+
+        seats_to_create = []
+        templates = db.query(AircraftSeatTemplate).filter(AircraftSeatTemplate.aircraft_id == aircraft.id).order_by(AircraftSeatTemplate.id.asc()).all()
+        if templates:
+            for tpl in templates:
+                seats_to_create.append(Seat(flight_id=flight.id, seat_number=tpl.seat_number, seat_class=tpl.seat_class, is_available=True))
+        else:
+            eco = int(getattr(aircraft, 'economy_count', 0) or 0)
+            prem = int(getattr(aircraft, 'premium_economy_count', 0) or 0)
+            bus = int(getattr(aircraft, 'business_count', 0) or 0)
+            first = int(getattr(aircraft, 'first_count', 0) or 0)
+
+            sum_counts = eco + prem + bus + first
+            cap = sum_counts if sum_counts > 0 else int(aircraft.capacity)
+
+            idx = 1
+            def add_block(count, cls_name):
+                nonlocal idx
+                for _ in range(count):
+                    seats_to_create.append(Seat(flight_id=flight.id, seat_number=str(idx), seat_class=cls_name, is_available=True))
+                    idx += 1
+
+            if first > 0:
+                add_block(first, "First")
+            if bus > 0:
+                add_block(bus, "Business")
+            if prem > 0:
+                add_block(prem, "Premium Economy")
+            if eco > 0:
+                add_block(eco, "Economy")
+
+            if not seats_to_create:
+                seats_to_create = [Seat(flight_id=flight.id, seat_number=str(i), seat_class="Economy", is_available=True) for i in range(1, cap+1)]
+
         if seats_to_create:
             db.add_all(seats_to_create)
             db.commit()

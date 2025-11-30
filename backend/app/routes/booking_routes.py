@@ -39,12 +39,12 @@ def create_booking_api(payload: BookingCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=f"flight '{payload.flight_number}' not found")
 
     try:
+        # Do not accept seat_ids from client; seats will be allocated after successful payment
         booking = create_booking(
             db,
             user_id=payload.user_id,
             flight_id=flight.id,
             passengers=passengers,
-            seat_ids=payload.seat_ids,
             seat_class=payload.seat_class,
         )
     except ValueError as exc:
@@ -78,6 +78,7 @@ def create_booking_api(payload: BookingCreate, db: Session = Depends(get_db)):
     return BookingResponse(
         id=booking.id,
         pnr=booking.pnr,
+        booking_reference=booking.booking_reference,
         status=booking.status,
         created_at=booking.created_at,
         tickets=tickets,
@@ -120,6 +121,7 @@ def get_booking_api(pnr: str, db: Session = Depends(get_db)):
     return BookingResponse(
         id=booking.id,
         pnr=booking.pnr,
+        booking_reference=booking.booking_reference,
         status=booking.status,
         created_at=booking.created_at,
         tickets=tickets,
@@ -156,6 +158,7 @@ def patch_booking_api(pnr: str, payload: BookingUpdate = Body(...), db: Session 
     return BookingResponse(
         id=booking.id,
         pnr=booking.pnr,
+        booking_reference=booking.booking_reference,
         status=booking.status,
         created_at=booking.created_at,
         tickets=tickets,

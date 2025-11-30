@@ -4,7 +4,8 @@ from datetime import datetime
 
 
 class PaymentCreate(BaseModel):
-    booking_id: int
+    # Only booking_reference is required now; booking_id removed.
+    booking_reference: str
     amount: float
     method: str
 

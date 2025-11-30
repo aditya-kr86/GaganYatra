@@ -23,7 +23,7 @@ class SeatResponse(BaseModel):
     is_available: bool
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class SeatBulkCreate(BaseModel):
@@ -64,7 +64,25 @@ class SeatAvailabilityResponse(BaseModel):
     classes: list[SeatAvailabilityItem]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+
+class SeatOverviewResponse(BaseModel):
+    model: Optional[str] = None
+    flight_no: str
+    total_capacity: int
+    available_capacity: int
+    economy_count: int
+    available_economy_count: int
+    premium_economy_count: int
+    available_premium_economy_count: int
+    business_count: int
+    available_business_count: int
+    first_count: int
+    available_first_count: int
+
+    class Config:
+        from_attributes = True
 
 
 class SeatClassBatch(BaseModel):

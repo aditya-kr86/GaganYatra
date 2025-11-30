@@ -12,19 +12,21 @@ def list_tickets(db: Session = Depends(get_db)):
     return db.query(Ticket).all()
 
 
-@router.get("/{ticket_id}", response_model=TicketResponse)
-def get_ticket(ticket_id: int, db: Session = Depends(get_db)):
-    t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+@router.get("/{ticket_number}", response_model=TicketResponse)
+def get_ticket(ticket_number: str, db: Session = Depends(get_db)):
+    """Lookup ticket by its `ticket_number` (external ticket identifier)."""
+    t = db.query(Ticket).filter(Ticket.ticket_number == ticket_number).first()
     if not t:
         raise HTTPException(status_code=404, detail="ticket not found")
     return t
 
 
-@router.delete("/{ticket_id}")
-def delete_ticket(ticket_id: int, db: Session = Depends(get_db)):
-    t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+@router.delete("/{ticket_number}")
+def delete_ticket(ticket_number: str, db: Session = Depends(get_db)):
+    """Delete ticket by its external `ticket_number`."""
+    t = db.query(Ticket).filter(Ticket.ticket_number == ticket_number).first()
     if not t:
         raise HTTPException(status_code=404, detail="ticket not found")
     db.delete(t)
     db.commit()
-    return {"message": "ticket deleted"}
+    return {"message": f"ticket {ticket_number} deleted"}

@@ -20,12 +20,12 @@ class TicketResponse(BaseModel):
     arrival_city: str
     departure_time: datetime
     arrival_time: datetime
-    seat_number: str
+    seat_number: Optional[str]
     seat_class: str
     price_paid: float
     currency: str
-    ticket_number: str
-    issued_at: datetime
+    ticket_number: Optional[str]
+    issued_at: Optional[datetime]
 
     class Config:
-        orm_mode = True
+        from_attributes = True

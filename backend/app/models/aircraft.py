@@ -8,6 +8,14 @@ class Aircraft(Base):
 
     id = Column(Integer, primary_key=True)
     model = Column(String(100), nullable=False)
+    # total capacity (kept for compatibility)
     capacity = Column(Integer, nullable=False)
+    # optional per-class seat counts. If provided these will be used to
+    # create seats on a Flight; `capacity` should equal the sum but we'll
+    # coerce to the sum when needed.
+    economy_count = Column(Integer, default=0)
+    premium_economy_count = Column(Integer, default=0)
+    business_count = Column(Integer, default=0)
+    first_count = Column(Integer, default=0)
 
     flights = relationship("Flight", back_populates="aircraft")

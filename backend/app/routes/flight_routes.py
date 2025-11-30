@@ -41,6 +41,7 @@ def search_flights_api(
     date: str | None = Query(None, regex=r"^\d{4}-\d{2}-\d{2}$"),
     sort_by: str | None = Query(None, regex="^(price|duration)$"),
     limit: int | None = Query(50, ge=1, le=200),
+    days_flex: int | None = Query(0, ge=0, le=30),
     db: Session = Depends(get_db)
 ):
     # Normalize codes
@@ -56,12 +57,10 @@ def search_flights_api(
         except ValueError:
             raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
 
-    flights = search_flights(db, origin=origin, destination=destination, date=date, sort_by=sort_by, limit=limit)
+    flights = search_flights(db, origin=origin, destination=destination, date=date, sort_by=sort_by, limit=limit, days_flex=days_flex or 0)
 
-    if not flights:
-        raise HTTPException(status_code=404, detail="No flights found")
-
-    return flights
+    # Return empty list when no flights found (consistent with list endpoint)
+    return flights or []
 
 
 

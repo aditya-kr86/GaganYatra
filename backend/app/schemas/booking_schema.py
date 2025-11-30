@@ -6,21 +6,11 @@ from datetime import datetime
 class Passenger(BaseModel):
     # Accept either a full passenger_name or first_name+last_name
     passenger_name: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
     age: Optional[int] = None
     gender: Optional[str] = None
     # Optional per-passenger fare override and currency
     fare: Optional[float] = None
     currency: Optional[str] = None
-
-    @root_validator(pre=True)
-    def ensure_name(cls, values):
-        # require either passenger_name or both first_name and last_name
-        if not values.get('passenger_name'):
-            if not (values.get('first_name') and values.get('last_name')):
-                raise ValueError('passenger must have passenger_name or first_name and last_name')
-        return values
 
 
 class BookingCreate(BaseModel):
@@ -30,8 +20,7 @@ class BookingCreate(BaseModel):
     passengers: List[Passenger]
     # Optional: preferred seat class (e.g., "Economy", "Business")
     seat_class: Optional[str] = None
-    # Optional: explicit seat ids (one per passenger) — if provided length must match passengers
-    seat_ids: Optional[List[int]] = None
+    # Note: clients should NOT provide `seat_ids`. Seats are auto-allocated after successful payment.
 
     class Config:
         schema_extra = {
@@ -68,16 +57,20 @@ class TicketInfo(BaseModel):
     seat_class: str
     price_paid: float
     currency: str
-    ticket_number: str
-    issued_at: datetime
+    ticket_number: Optional[str] = None
+    issued_at: Optional[datetime] = None
 
 
 class BookingResponse(BaseModel):
     id: int
-    pnr: str
+    pnr: Optional[str] = None
+    booking_reference: Optional[str] = None
     status: str
     created_at: datetime
     tickets: List[TicketInfo]
+    # Payment info (returned after successful payment)
+    transaction_id: Optional[str] = None
+    paid_amount: Optional[float] = None
 
     class Config:
         orm_mode = True

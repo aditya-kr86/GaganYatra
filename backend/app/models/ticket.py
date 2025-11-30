@@ -31,14 +31,15 @@ class Ticket(Base):
     departure_time = Column(DateTime, nullable=False)
     arrival_time = Column(DateTime, nullable=False)
 
-    seat_number = Column(String(5), nullable=False)
+    seat_number = Column(String(5), nullable=True)
     seat_class = Column(String(20), nullable=False)
 
     price_paid = Column(Float, nullable=False)
     currency = Column(String(10), default="INR")
 
-    ticket_number = Column(String(20), unique=True, nullable=False)
-    issued_at = Column(DateTime, default=datetime.utcnow)
+    # ticket_number and issued_at are set only after successful payment/issuance
+    ticket_number = Column(String(40), unique=True, nullable=True)
+    issued_at = Column(DateTime, nullable=True)
 
     booking = relationship("Booking", back_populates="tickets")
     flight = relationship("Flight", back_populates="tickets")

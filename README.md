@@ -1,4 +1,4 @@
-# AkashaYatra — Flight Booking Simulator with Dynamic Pricing
+# GaganYatra — Flight Booking Simulator with Dynamic Pricing
 
 A modern Flight Booking & Pricing Simulation system built using **FastAPI**, designed to replicate real-world airline search, pricing logic, and booking workflows.
 
@@ -8,11 +8,10 @@ A modern Flight Booking & Pricing Simulation system built using **FastAPI**, des
 
 ## **Project Overview**
 
-AkashaYatra is a complete simulation of airline operations, focusing on:
+GaganYatra is a complete simulation of airline operations, focusing on:
 
 * **Flight Search Engine**
 * **Dynamic Pricing Algorithm** (based on seat avaibility, time, demand)
-* **Seat Inventory + Concurrency Control**
 * **Booking Workflow + PNR Generation**
 * **Frontend UI (Jinja2 Templates)**
 * **Receipt/PDF generation**
@@ -24,7 +23,6 @@ Built as part of the **Infosys Springboard Internship**, the project follows ind
 ## **Tech Stack**
 
 ### **Backend**
-
 * FastAPI (Async)
 * SQLAlchemy (ORM)
 * SQLite / PostgreSQL
@@ -43,56 +41,75 @@ Built as part of the **Infosys Springboard Internship**, the project follows ind
 ## **Project Architecture**
 
 ```
-AkashaYatra/
+GaganYatra/
 │
-├── main.py                      # App entry point
+├── backend
+│    │
+│    │
+│    ├── app/
+│    │   │
+│    │   ├── models/                  # SQLAlchemy ORM models
+│    │   │   ├── __init__.py
+│    │   │   ├── aircraft.py
+│    │   │   ├── airline.py
+│    │   │   ├── airport.py
+│    │   │   ├── booking.py
+│    │   │   ├── flight.py
+│    │   │   ├── payment.py
+│    │   │   ├── seat.py
+│    │   │   ├── ticket.py
+│    │   │   └── user.py
+│    │   │
+│    │   ├── routes/                  # FastAPI routers |(module-wise)
+│    │   │   ├── aircraft_routes.py
+│    │   │   ├── airline_routes.py
+│    │   │   ├── airport_routes.py
+│    │   │   ├── booking_routes.py
+│    │   │   ├── flight_routes.py
+│    │   │   ├── payment_routes.py
+│    │   │   ├── seat_routes.py
+│    │   │   ├── ticket_routes.py
+│    │   │   └── user_routes.py
+│    │   │  
+│    │   ├── schemas/                  # Pydantic models for |request/response
+│    │   │   ├── aircraft_schema.py
+│    │   │   ├── airline_schema.py
+│    │   │   ├── airport_schema.py
+│    │   │   ├── booking_schema.py
+│    │   │   ├── flight_schema.py
+│    │   │   ├── payment_schema.py
+│    │   │   ├── seat_schema.py
+│    │   │   ├── ticket_schema.py
+│    │   │   └── user_schema.py
+│    |   │
+│    │   ├── services/                # Business logic (per module)
+│    │   │   ├── flight_service.py    # Search + sort
+│    │   │   ├── pricing_engine.py    # Dynamic fare logic
+│    │   │   ├── booking_service.py   # Booking + concurrency
+│    │   │   └── demand_simulator.py  # Background demand engine
+│    │   │
+│    │   │
+│    │   ├── utils/                   # Helpers (PNR, PDF, etc.)
+│    │   │   ├── pnr_generator.py
+│    │   │   └── pdf_generator.py
+│    │   │  
+│    │   └── config.py                # DB setup (SQLite → |PostgreSQL later)
+│    │
+│    ├── .gitignore
+│    ├── database.db                  # SQLite (local dev)
+│    ├── main.py                      # App entry point
+│    ├── requirements.txt
+│    └──  README.md
 │
-├── app/
-│   ├── __init__.py
-│   ├── config.py                # DB setup (SQLite → PostgreSQL later)
-│   ├── db_seed.py               # For simulated flight data
+├── frontend
 │
-│   ├── models/                  # SQLAlchemy ORM models
-│   │   ├── airline.py
-│   │   ├── airport.py
-│   │   ├── flight.py
-│   │   ├── booking.py
-│   │   └── user.py
 │
-│   ├── schemas/                 # Pydantic models for request/response
-│   │   ├── flight_schema.py
-│   │   ├── booking_schema.py
-│   │   └── user_schema.py
-│
-│   ├── services/                # Business logic (per module)
-│   │   ├── flight_service.py    # Search + sort
-│   │   ├── pricing_engine.py    # Dynamic fare logic
-│   │   ├── booking_service.py   # Booking + concurrency
-│   │   └── demand_simulator.py  # Background demand engine
-│
-│   ├── routes/                  # FastAPI routers (module-wise)
-│   │   ├── flight_routes.py
-│   │   ├── pricing_routes.py
-│   │   ├── booking_routes.py
-│   │   └── ui_routes.py
-│
-│   ├── templates/               # Jinja2 templates (for frontend)
-│   │   ├── base.html
-│   │   ├── search.html
-│   │   ├── results.html
-│   │   ├── booking.html
-│   │   └── confirmation.html
-│
-│   ├── static/                  # CSS / JS / images
-│   │   └── styles.css
-│
-│   └── utils/                   # Helpers (PNR, PDF, etc.)
-│       ├── pnr_generator.py
-│       └── pdf_generator.py
-│
-├── requirements.txt
-├── README.md
-└── database.db                  # SQLite (local dev)
+├── .gitignore                   # App entry point
+├── ER Diagram.png
+├── LICENSE
+├── PROJECT_ARCHITECTURE.mmd
+├── project.txt
+└──  README.md
 ```
 
 ---
@@ -140,15 +157,15 @@ Real-time fare updates during search or booking.
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/aditya-kr86/AkashaYatra.git
-cd AkashaYatra
+git clone https://github.com/aditya-kr86/GaganYatra.git
+cd GaganYatra/backend
 ```
 
 ### 2. Create Virtual Environment
 
 ```bash
-python -m venv venv
-source venv/bin/activate       # mac/Linux
+python -m venv .venv
+source .venv/bin/activate       # mac/Linux
 venv\Scripts\activate          # Windows
 ```
 
@@ -192,20 +209,9 @@ app/services/pricing_engine.py
 
 | Milestone              | Status         |
 | ---------------------- | -------------- |
-| Flight Search Engine   | In Progress |
-| Dynamic Pricing Engine | Pending      |
+| Flight Search Engine   | Completed    |
+| Dynamic Pricing Engine | In Progress  |
 | Booking Workflow       | Pending      |
 | Frontend Integration   | Pending      |
 
 ---
-
-## **License**
-
-MIT License — free for academic, learning & experimentation.
-
----
-
-## **Credits**
-
-Developed by **Aditya Kumar**
-Infosys Springboard Internship — 2025

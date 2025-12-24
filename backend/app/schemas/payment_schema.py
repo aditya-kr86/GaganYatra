@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -19,8 +19,7 @@ class PaymentResponse(BaseModel):
     transaction_id: Optional[str]
     paid_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaymentUpdate(BaseModel):

@@ -253,11 +253,17 @@ def create_flight(db: Session, airline_id: int, aircraft_id: int, flight_number:
 
 
 def create_booking(db: Session, user_id: int, flight_id: int, departure_date: str, passengers: list[dict], seat_class: str | None = None) -> dict:
-    """Create booking with dynamic price computation.
+    """Create booking with dynamic price computation and concurrency-safe seat allocation.
+    
+    Uses row-level locking (SELECT FOR UPDATE) to prevent race conditions when
+    multiple users try to book the same seats simultaneously.
     
     Returns dict with 'booking' and 'total_fare' keys.
     """
-    flight = db.query(Flight).filter(Flight.id == flight_id).first()
+    from sqlalchemy import text
+    
+    # Start explicit transaction with row-level lock on flight
+    flight = db.query(Flight).filter(Flight.id == flight_id).with_for_update().first()
     if not flight:
         raise ValueError("flight not found")
 
@@ -271,10 +277,21 @@ def create_booking(db: Session, user_id: int, flight_id: int, departure_date: st
     except ValueError as e:
         raise ValueError(f"Invalid departure_date or mismatch: {e}")
 
-    # Compute dynamic price for this flight and seat_class
+    # Lock and count available seats with FOR UPDATE to prevent concurrent allocation
     total_seats = db.query(func.count(Seat.id)).filter(Seat.flight_id == flight.id).scalar() or 0
-    available = db.query(func.count(Seat.id)).filter(Seat.flight_id == flight.id, Seat.is_available == True).scalar() or 0
+    available_seats = db.query(Seat).filter(
+        Seat.flight_id == flight.id, 
+        Seat.is_available == True
+    ).with_for_update().all()
+    
+    available = len(available_seats)
     booked_seats = total_seats - available
+    
+    # Check if enough seats are available
+    num_passengers = len(passengers)
+    if available < num_passengers:
+        raise ValueError(f"Not enough seats available. Requested: {num_passengers}, Available: {available}")
+    
     demand_level = getattr(flight, 'demand_level', 'medium') or 'medium'
     tier = (seat_class or "Economy").upper()
 
@@ -288,7 +305,7 @@ def create_booking(db: Session, user_id: int, flight_id: int, departure_date: st
     )
 
     # Total fare for all passengers
-    total_fare = dynamic_price * len(passengers)
+    total_fare = dynamic_price * num_passengers
 
     # Create booking
     booking_ref = "BKG" + uuid.uuid4().hex[:12].upper()
@@ -300,12 +317,20 @@ def create_booking(db: Session, user_id: int, flight_id: int, departure_date: st
     dep = db.query(Airport).filter(Airport.id == flight.departure_airport_id).first()
     arr = db.query(Airport).filter(Airport.id == flight.arrival_airport_id).first()
 
-    # Create tickets for each passenger with computed dynamic price
+    # Allocate seats to passengers (reserve them by marking unavailable)
+    allocated_seats = available_seats[:num_passengers]
+    
+    # Create tickets for each passenger with computed dynamic price and allocated seat
     for idx, p in enumerate(passengers):
+        seat = allocated_seats[idx]
+        # Mark seat as unavailable (reserved for this booking)
+        seat.is_available = False
+        seat.booking_id = booking.id
+        
         ticket = Ticket(
             booking_id=booking.id,
             flight_id=flight.id,
-            seat_id=None,
+            seat_id=seat.id,
             passenger_name=p.get("passenger_name"),
             passenger_age=p.get("age"),
             passenger_gender=p.get("gender"),
@@ -318,8 +343,8 @@ def create_booking(db: Session, user_id: int, flight_id: int, departure_date: st
             arrival_city=arr.city if arr and hasattr(arr, 'city') else "",
             departure_time=flight.departure_time,
             arrival_time=flight.arrival_time,
-            seat_number="",
-            seat_class=tier,
+            seat_number=seat.seat_number,
+            seat_class=seat.seat_class,
             payment_required=dynamic_price,  # Use computed dynamic price
             currency="INR",
             ticket_number=None
@@ -341,15 +366,23 @@ def get_booking_by_pnr(db: Session, pnr: str) -> Booking | None:
 
 
 def cancel_booking(db: Session, pnr: str) -> Booking | None:
+    """Cancel booking and release all reserved seats back to inventory."""
     booking = get_booking_by_pnr(db, pnr)
     if not booking:
         return None
-    # free seats
+    
+    # Use row-level lock to prevent concurrent modifications
+    booking = db.query(Booking).filter(Booking.pnr == pnr.upper()).with_for_update().first()
+    if not booking:
+        return None
+    
+    # Release seats back to available inventory
     for ticket in booking.tickets:
         if ticket.seat_id:
-            seat = db.query(Seat).filter(Seat.id == ticket.seat_id).first()
+            seat = db.query(Seat).filter(Seat.id == ticket.seat_id).with_for_update().first()
             if seat:
                 seat.is_available = True
+                seat.booking_id = None
 
     booking.status = "Cancelled"
     db.commit()

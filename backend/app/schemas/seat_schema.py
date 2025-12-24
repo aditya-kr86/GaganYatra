@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 
@@ -22,8 +22,7 @@ class SeatResponse(BaseModel):
     seat_class: Optional[str]
     is_available: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SeatBulkCreate(BaseModel):
@@ -63,8 +62,7 @@ class SeatAvailabilityResponse(BaseModel):
     flight_number: str
     classes: list[SeatAvailabilityItem]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SeatOverviewResponse(BaseModel):
@@ -81,8 +79,7 @@ class SeatOverviewResponse(BaseModel):
     first_count: int
     available_first_count: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SeatClassBatch(BaseModel):

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel, root_validator, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -17,8 +17,7 @@ class BookingCreate(BaseModel):
     passengers: List[Passenger]
     seat_class: Optional[str] = None
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(json_schema_extra={
             "example": {
                 "user_id": 1,
                 "flight_number": "AI-123",
@@ -28,7 +27,7 @@ class BookingCreate(BaseModel):
                 ],
                 "seat_class": "Economy"
             }
-        }
+        })
 
 
 class TicketInfo(BaseModel):
@@ -90,8 +89,7 @@ class BookingResponse(BaseModel):
     transaction_id: Optional[str] = None
     paid_amount: Optional[float] = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BookingUpdate(BaseModel):

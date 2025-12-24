@@ -201,3 +201,53 @@ def patch_booking_api(pnr: str, payload: BookingUpdate = Body(...), db: Session 
         transaction_id=None,
         paid_amount=None,
     )
+
+
+@router.get("/{pnr}/receipt/pdf")
+def download_booking_receipt_pdf(pnr: str, db: Session = Depends(get_db)):
+    """Download booking receipt as PDF."""
+    from fastapi.responses import StreamingResponse
+    from app.utils.pdf_generator import generate_ticket_pdf
+    from app.models.user import User
+    
+    booking = get_booking_by_pnr(db, pnr)
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    # Get user info
+    user = db.query(User).filter(User.id == booking.user_id).first()
+    user_name = f"{user.first_name} {user.last_name}" if user else "Guest"
+    
+    # Prepare booking data
+    booking_data = {
+        'pnr': booking.pnr or booking.booking_reference,
+        'booking_reference': booking.booking_reference,
+        'status': booking.status,
+        'created_at': booking.created_at,
+        'user_name': user_name,
+    }
+    
+    # Prepare tickets data
+    tickets_data = []
+    for ticket in booking.tickets:
+        tickets_data.append({
+            'ticket_number': ticket.ticket_number or 'PENDING',
+            'passenger_name': ticket.passenger_name,
+            'flight_number': ticket.flight_number,
+            'route': ticket.route,
+            'departure_time': ticket.departure_time,
+            'arrival_time': ticket.arrival_time,
+            'seat_number': ticket.seat_number or 'TBA',
+            'seat_class': ticket.seat_class,
+            'fare': float(ticket.payment_required or 0.0),
+            'currency': ticket.currency or 'INR',
+        })
+    
+    # Generate PDF
+    pdf_buffer = generate_ticket_pdf(booking_data, tickets_data)
+    
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=booking_{pnr}.pdf"}
+    )

@@ -76,6 +76,38 @@ def compute_dynamic_price(
     tier: str = "ECONOMY",
     now: datetime | None = None,
 ) -> float:
+    """
+    Compute dynamic price based on multiple factors.
+    
+    Args:
+        base_fare: Base price for the flight
+        departure_time: Scheduled departure datetime
+        total_seats: Total seat capacity
+        booked_seats: Number of seats already booked
+        demand_level: Current demand level (low/medium/high/extreme)
+        tier: Fare tier (ECONOMY/ECONOMY_FLEX/BUSINESS/FIRST)
+        now: Current time (defaults to utcnow)
+    
+    Returns:
+        Dynamic price as float rounded to 2 decimals
+        
+    Raises:
+        ValueError: If base_fare is negative or seats are invalid
+    """
+    # Validation
+    if base_fare < 0:
+        raise ValueError("base_fare must be non-negative")
+    if total_seats < 0:
+        raise ValueError("total_seats must be non-negative")
+    if booked_seats < 0:
+        raise ValueError("booked_seats must be non-negative")
+    if booked_seats > total_seats:
+        raise ValueError("booked_seats cannot exceed total_seats")
+    
+    # Edge case: no seats or flight full
+    if total_seats == 0:
+        return round(base_fare, 2)
+    
     remaining_seats = max(total_seats - booked_seats, 0)
 
     # normalize demand_level
@@ -93,4 +125,9 @@ def compute_dynamic_price(
     tr_mult = tier_multiplier(tier)
 
     price = base_fare * inv_mult * t_mult * d_mult * tr_mult
+    
+    # Ensure price doesn't exceed reasonable bounds (e.g., 10x base for extreme cases)
+    max_price = base_fare * 10.0
+    price = min(price, max_price)
+    
     return round(price, 2)

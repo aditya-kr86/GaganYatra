@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import Optional
 
 
@@ -27,6 +27,5 @@ class UserResponse(BaseModel):
     role: str
     airline_id: Optional[int] = None
     airport_id: Optional[int] = None
-
-    class Config:
-        orm_mode = True
+    
+    model_config = ConfigDict(from_attributes=True)

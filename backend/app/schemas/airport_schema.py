@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 
@@ -23,9 +23,7 @@ class AirportResponse(BaseModel):
     city: Optional[str]
     country: Optional[str]
 
-    class Config:
-        orm_mode = True
-        schema_extra = {
+    model_config = ConfigDict(from_attributes=True, json_schema_extra={
             "example": {
                 "id": 1,
                 "code": "DEL",
@@ -33,4 +31,4 @@ class AirportResponse(BaseModel):
                 "city": "Delhi",
                 "country": "India"
             }
-        }
+        })

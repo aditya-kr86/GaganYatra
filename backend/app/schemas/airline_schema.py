@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 
@@ -17,12 +17,10 @@ class AirlineResponse(BaseModel):
     name: str
     code: str
 
-    class Config:
-        orm_mode = True
-        schema_extra = {
+    model_config = ConfigDict(from_attributes=True, json_schema_extra={
             "example": {
                 "id": 1,
                 "name": "National Airlines",
                 "code": "NA"
             }
-        }
+        })

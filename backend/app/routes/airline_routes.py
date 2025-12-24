@@ -68,3 +68,71 @@ def delete_airline(airline_id: int, db: Session = Depends(get_db)):
     db.delete(al)
     db.commit()
     return {"message": "airline deleted"}
+
+
+@router.get("/{airline_code}/schedules/external")
+def get_external_airline_schedules(
+    airline_code: str,
+    origin: str | None = None,
+    destination: str | None = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Simulates external airline schedule API feed.
+    Returns flight schedule data for a specific airline in a format that mimics
+    external airline APIs (e.g., simplified JSON with selected fields).
+    """
+    from app.models.flight import Flight
+    from app.models.airport import Airport
+    from datetime import datetime, timezone
+    
+    airline = db.query(Airline).filter(Airline.code == airline_code.upper()).first()
+    if not airline:
+        raise HTTPException(status_code=404, detail=f"airline '{airline_code}' not found")
+    
+    # Query flights for this airline
+    query = db.query(Flight).filter(Flight.airline_id == airline.id)
+    
+    # Filter by future flights only
+    query = query.filter(Flight.departure_time > datetime.now(timezone.utc))
+    
+    # Apply optional filters
+    if origin:
+        origin_airport = db.query(Airport).filter(Airport.code == origin.upper()).first()
+        if origin_airport:
+            query = query.filter(Flight.departure_airport_id == origin_airport.id)
+    
+    if destination:
+        dest_airport = db.query(Airport).filter(Airport.code == destination.upper()).first()
+        if dest_airport:
+            query = query.filter(Flight.arrival_airport_id == dest_airport.id)
+    
+    flights = query.limit(100).all()
+    
+    # Simulate external API response format (simplified)
+    results = []
+    for flight in flights:
+        dep_airport = db.query(Airport).filter(Airport.id == flight.departure_airport_id).first()
+        arr_airport = db.query(Airport).filter(Airport.id == flight.arrival_airport_id).first()
+        
+        results.append({
+            "flight_number": flight.flight_number,
+            "airline": airline.name,
+            "airline_code": airline.code,
+            "origin": dep_airport.code if dep_airport else None,
+            "origin_city": dep_airport.city if dep_airport else None,
+            "destination": arr_airport.code if arr_airport else None,
+            "destination_city": arr_airport.city if arr_airport else None,
+            "departure_time": flight.departure_time.isoformat(),
+            "arrival_time": flight.arrival_time.isoformat(),
+            "status": flight.status,
+            "base_fare": float(flight.base_price),
+        })
+    
+    return {
+        "airline": airline.name,
+        "airline_code": airline.code,
+        "schedules": results,
+        "total": len(results),
+        "source": "external_api_simulation"
+    }

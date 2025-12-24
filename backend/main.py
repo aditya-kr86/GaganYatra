@@ -33,6 +33,13 @@ def create_tables_on_startup():
             print(f"✅ Created seats for {created} flights")
     finally:
         db.close()
+    
+    # Check Celery status
+    from app.celery_app import CELERY_ENABLED
+    if CELERY_ENABLED:
+        print("✅ Celery background task queue enabled (Redis available)")
+    else:
+        print("⚠️  Celery not available - using asyncio for background tasks")
 
 
 async def _simulator_loop(interval_minutes: int = 5):

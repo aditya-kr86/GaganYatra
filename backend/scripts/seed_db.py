@@ -1,4 +1,4 @@
-"""Seed script for GaganYatra backend.
+"""Seed script for FlightBooker backend.
 
 This script is idempotent: running it multiple times won't create duplicate
 airlines/airports/aircrafts or flights with the same flight_number + departure_time.
@@ -188,7 +188,7 @@ def create_admin_user(db):
     from app.models.user import User
     from app.auth.password import hash_password
     
-    admin_email = os.getenv("ADMIN_EMAIL", "admin@gaganyatra.com")
+    admin_email = os.getenv("ADMIN_EMAIL", "admin@flightbooker.com")
     admin_password = os.getenv("ADMIN_PASSWORD", "Admin@123")
     
     existing = db.query(User).filter(User.email == admin_email).first()
@@ -199,7 +199,7 @@ def create_admin_user(db):
     admin = User(
         email=admin_email,
         password_hash=hash_password(admin_password),
-        first_name="GaganYatra",
+        first_name="FlightBooker",
         last_name="Admin",
         mobile="+919999999999",
         country="India",

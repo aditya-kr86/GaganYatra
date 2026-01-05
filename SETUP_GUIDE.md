@@ -1,4 +1,4 @@
-# GaganYatra Backend - Setup & Configuration Guide
+# FlightBooker Backend - Setup & Configuration Guide
 
 ## Quick Start (Development)
 

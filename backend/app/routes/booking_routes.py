@@ -118,6 +118,43 @@ def create_booking_api(
     )
 
 
+@router.get("/", response_model=list[BookingResponse])
+def list_all_bookings_api(
+    admin_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """List all bookings (admin only)."""
+    from app.models.booking import Booking
+    
+    bookings = db.query(Booking).order_by(Booking.created_at.desc()).all()
+    
+    results = []
+    for booking in bookings:
+        # Compute total_fare from tickets
+        total_fare = sum(t.payment_required for t in booking.tickets) if booking.tickets else 0.0
+        
+        # Convert tickets to simplified format
+        tickets = [_ticket_to_simplified(t) for t in booking.tickets]
+        
+        # Get the most recent successful payment
+        successful_payment = None
+        if booking.payments:
+            successful_payment = next((p for p in sorted(booking.payments, key=lambda x: x.paid_at, reverse=True) if p.status == "Success"), None)
+        
+        results.append(BookingResponse(
+            pnr=booking.pnr,
+            booking_reference=booking.booking_reference,
+            status=booking.status,
+            created_at=booking.created_at,
+            total_fare=total_fare,
+            tickets=tickets,
+            transaction_id=successful_payment.transaction_id if successful_payment else None,
+            paid_amount=successful_payment.amount if successful_payment else None,
+        ))
+    
+    return results
+
+
 @router.get("/successful", response_model=list[BookingResponse])
 def list_successful_bookings_api(db: Session = Depends(get_db)):
     """Retrieve all successful (Confirmed) bookings."""

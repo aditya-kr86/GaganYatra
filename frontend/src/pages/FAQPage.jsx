@@ -14,7 +14,7 @@ const FAQPage = () => {
       icon: '✈️',
       faqs: [
         {
-          question: 'How do I book a flight on GaganYatra?',
+          question: 'How do I book a flight on FlightBooker?',
           answer: 'Booking a flight is simple! Enter your departure and arrival cities, select your travel dates, and choose the number of passengers. Browse available flights, select your preferred option, enter passenger details, and complete the payment. You\'ll receive an instant confirmation with your PNR.'
         },
         {
@@ -111,7 +111,7 @@ const FAQPage = () => {
         },
         {
           question: 'How can I contact customer support?',
-          answer: 'Our 24/7 support is available via: Email at support@gaganyatra.com, Phone at 1800-XXX-XXXX (toll-free), or Live Chat on our website and app. Response time is typically under 2 hours.'
+          answer: 'Our 24/7 support is available via: Email at support@flightbooker.com, Phone at 1800-XXX-XXXX (toll-free), or Live Chat on our website and app. Response time is typically under 2 hours.'
         },
         {
           question: 'How do I view my past bookings?',

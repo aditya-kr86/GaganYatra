@@ -66,7 +66,7 @@ const BookingConfirmationPage = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `GaganYatra_Ticket_${pnr}.pdf`;
+      link.download = `FlightBooker_Ticket_${pnr}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -145,11 +145,11 @@ const BookingConfirmationPage = () => {
             </div>
 
             {/* Cancelled Ticket Details */}
-            <div className="ticket-card cancelled-ticket" id="printable-ticket">
+            <div class="ticket-card cancelled-ticket" id="printable-ticket">
               <div className="ticket-header">
                 <div className="ticket-logo">
                   <Plane size={28} />
-                  <span>GaganYatra</span>
+                  <span>FlightBooker</span>
                 </div>
                 <div className="ticket-status">
                   <span className="status-badge cancelled">
@@ -346,7 +346,7 @@ const BookingConfirmationPage = () => {
             <div className="ticket-header">
               <div className="ticket-logo">
                 <Plane size={28} />
-                <span>GaganYatra</span>
+                <span>FlightBooker</span>
               </div>
               <div className="ticket-status">
                 <span className={`status-badge ${booking.status.toLowerCase()}`}>

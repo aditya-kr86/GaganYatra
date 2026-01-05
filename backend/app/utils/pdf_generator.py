@@ -50,7 +50,7 @@ def generate_ticket_pdf(booking_data: dict, tickets_data: list[dict]) -> BytesIO
     elements = []
     
     # Title
-    elements.append(Paragraph("✈️ GaganYatra Flight Booking Confirmation", title_style))
+    elements.append(Paragraph("✈️ FlightBooker Flight Booking Confirmation", title_style))
     elements.append(Spacer(1, 0.3*inch))
     
     # Booking Information
@@ -128,7 +128,7 @@ def generate_ticket_pdf(booking_data: dict, tickets_data: list[dict]) -> BytesIO
         textColor=colors.grey,
         alignment=1
     )
-    elements.append(Paragraph("Thank you for choosing GaganYatra!", footer_style))
+    elements.append(Paragraph("Thank you for choosing FlightBooker!", footer_style))
     elements.append(Paragraph("Please arrive at the airport 2 hours before departure.", footer_style))
     
     # Build PDF

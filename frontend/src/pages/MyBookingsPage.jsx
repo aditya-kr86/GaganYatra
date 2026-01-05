@@ -79,7 +79,7 @@ const MyBookingsPage = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `GaganYatra_Ticket_${pnr}.pdf`;
+      link.download = `FlightBooker_Ticket_${pnr}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

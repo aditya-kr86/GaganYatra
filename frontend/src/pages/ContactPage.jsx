@@ -47,7 +47,7 @@ const ContactPage = () => {
     {
       icon: <Mail />,
       title: 'Email Us',
-      primary: 'support@gaganyatra.com',
+      primary: 'support@flightbooker.com',
       secondary: 'Response within 2 hours',
     },
     {

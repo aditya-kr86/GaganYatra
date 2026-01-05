@@ -9,7 +9,7 @@ const PrivacyPage = () => {
   const sections = [
     {
       title: '1. Introduction',
-      content: `GaganYatra ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your personal information when you use our website, mobile applications, and services.
+      content: `FlightBooker ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your personal information when you use our website, mobile applications, and services.
 
 By using our services, you consent to the data practices described in this policy. We encourage you to read this Privacy Policy carefully and contact us if you have any questions.`
     },
@@ -139,7 +139,7 @@ Opt-out of marketing communications and certain data processing.
 **Right to Restrict:**
 Limit how we process your data in certain circumstances.
 
-To exercise these rights, contact us at privacy@gaganyatra.com. We will respond within 30 days.`
+To exercise these rights, contact us at privacy@flightbooker.com. We will respond within 30 days.`
     },
     {
       title: '8. Data Retention',
@@ -186,16 +186,16 @@ Your continued use of our services after changes indicates acceptance of the upd
       content: `For privacy-related questions or to exercise your rights:
 
 **Data Protection Officer:**
-Email: privacy@gaganyatra.com
+Email: privacy@flightbooker.com
 Phone: 1800-XXX-XXXX
 
 **Mailing Address:**
-GaganYatra Privacy Team
+FlightBooker Privacy Team
 Tech Park, Sector 126
 Noida, UP 201303, India
 
 **Grievance Redressal:**
-If you have concerns about how we handle your data, please contact our Grievance Officer at grievance@gaganyatra.com. We will address your concerns within 30 days.`
+If you have concerns about how we handle your data, please contact our Grievance Officer at grievance@flightbooker.com. We will address your concerns within 30 days.`
     }
   ];
 
@@ -219,7 +219,7 @@ If you have concerns about how we handle your data, please contact our Grievance
 
           <div className="legal-intro">
             <p>
-              At GaganYatra, we take your privacy seriously. This Privacy Policy describes 
+              At FlightBooker, we take your privacy seriously. This Privacy Policy describes 
               how we collect, use, and protect your personal information when you use our 
               flight booking platform. We are committed to transparency and giving you 
               control over your data.
@@ -267,9 +267,9 @@ If you have concerns about how we handle your data, please contact our Grievance
 
           <div className="legal-footer">
             <p>
-              By using GaganYatra's services, you acknowledge that you have read and 
+              By using FlightBooker's services, you acknowledge that you have read and 
               understood this Privacy Policy. If you have any questions or concerns, 
-              please contact our Privacy Team at privacy@gaganyatra.com.
+              please contact our Privacy Team at privacy@flightbooker.com.
             </p>
           </div>
         </div>

@@ -11,7 +11,7 @@ const Hero = () => {
       <div className="hero-content">
         <div className="hero-text">
           <h1 className="hero-title">
-            Explore the <span className="highlight">Skies</span> with GaganYatra
+            Explore the <span className="highlight">Skies</span> with FlightBooker
           </h1>
           <p className="hero-subtitle">
             Book your dream flights at the best prices. Discover seamless travel 

@@ -294,23 +294,39 @@ def create_booking(db: Session, user_id: int, flight_id: int, departure_date: st
     except ValueError as e:
         raise ValueError(f"Invalid departure_date or mismatch: {e}")
 
+    # Map API tier names to database seat class names
+    tier_to_db_class = {
+        "ECONOMY": "Economy",
+        "ECONOMY_FLEX": "Premium Economy",
+        "BUSINESS": "Business",
+        "FIRST": "First"
+    }
+    
+    # Get the requested seat class (default to Economy)
+    requested_tier = (seat_class or "ECONOMY").upper()
+    db_seat_class = tier_to_db_class.get(requested_tier, "Economy")
+
     # Lock and count available seats with FOR UPDATE to prevent concurrent allocation
     total_seats = db.query(func.count(Seat.id)).filter(Seat.flight_id == flight.id).scalar() or 0
+    
+    # Filter available seats by the requested class
     available_seats = db.query(Seat).filter(
         Seat.flight_id == flight.id, 
-        Seat.is_available == True
+        Seat.is_available == True,
+        Seat.seat_class == db_seat_class
     ).with_for_update().all()
     
     available = len(available_seats)
-    booked_seats = total_seats - available
+    all_booked = db.query(func.count(Seat.id)).filter(Seat.flight_id == flight.id, Seat.is_available == False).scalar() or 0
+    booked_seats = all_booked
     
-    # Check if enough seats are available
+    # Check if enough seats are available in the requested class
     num_passengers = len(passengers)
     if available < num_passengers:
-        raise ValueError(f"Not enough seats available. Requested: {num_passengers}, Available: {available}")
+        raise ValueError(f"Not enough {db_seat_class} class seats available. Requested: {num_passengers}, Available: {available}")
     
     demand_level = getattr(flight, 'demand_level', 'medium') or 'medium'
-    tier = (seat_class or "Economy").upper()
+    tier = requested_tier
 
     dynamic_price = compute_dynamic_price(
         base_fare=flight.base_price,
@@ -428,55 +444,30 @@ def create_payment(db: Session, booking_reference: str, amount: float, method: s
         db.commit()
         db.refresh(tx)
         return tx
-    # before marking success, ensure seats are available for requested classes
-    # compute needed per class
-    needed_by_class: dict[str, int] = {}
+    
+    # Seats were already reserved during booking creation, no need to check availability again
+    # Just verify that the booking has valid seat allocations
     for t in booking.tickets:
-        cls = (t.seat_class or "Economy").strip()
-        needed_by_class[cls] = needed_by_class.get(cls, 0) + 1
-
-    for cls, needed in needed_by_class.items():
-        cls_norm = cls.strip().lower()
-        avail = db.query(func.count(Seat.id)).filter(Seat.flight_id == booking.tickets[0].flight_id, Seat.is_available == True, func.lower(Seat.seat_class) == cls_norm).scalar() or 0
-        if avail < needed:
+        if not t.seat_id:
+            # Ticket doesn't have a seat allocated - this shouldn't happen
             tx.status = "Failed"
             db.add(tx)
             db.commit()
             db.refresh(tx)
             return tx
 
-    # amount sufficient and seats available -> success
+    # amount sufficient and seats already allocated -> success
     tx.status = "Success"
     db.add(tx)
     db.commit()
     db.refresh(tx)
 
-    # allocate seats and issue tickets
+    # Confirm booking and issue tickets (seats already allocated during booking)
     booking.status = "Confirmed"
     booking.pnr = _generate_pnr(db)
 
     for t in booking.tickets:
-        # allocate next available seat for this ticket's class
-        cls_norm = (t.seat_class or "Economy").strip().lower()
-        seat = db.query(Seat).filter(
-            Seat.flight_id == t.flight_id, 
-            Seat.is_available == True, 
-            func.lower(Seat.seat_class) == cls_norm
-        ).order_by(Seat.id.asc()).with_for_update().first()
-        if not seat:
-            # this should not happen because we checked availability earlier; treat as failure
-            tx.status = "Failed"
-            db.add(tx)
-            db.commit()
-            db.refresh(tx)
-            return tx
-        # Mark seat as unavailable immediately and flush to prevent duplicate allocation
-        seat.is_available = False
-        seat.booking_id = booking.id
-        db.flush()  # Flush to database so next query sees this seat as unavailable
-        
-        t.seat_id = seat.id
-        t.seat_number = seat.seat_number
+        # Issue ticket number if not already set
         if not t.ticket_number:
             t.ticket_number = "TKT" + uuid.uuid4().hex[:12].upper()
         if not t.issued_at:

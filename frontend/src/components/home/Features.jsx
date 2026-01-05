@@ -45,7 +45,7 @@ const Features = () => {
     <section className="features-section">
       <div className="features-container">
         <div className="section-header">
-          <h2>Why Choose GaganYatra?</h2>
+          <h2>Why Choose FlightBooker?</h2>
           <p>Experience hassle-free flight booking with features designed for modern travelers</p>
         </div>
 

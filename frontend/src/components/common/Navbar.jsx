@@ -37,7 +37,7 @@ const Navbar = () => {
         {/* Logo */}
         <Link to="/" className="navbar-logo">
           <Plane className="logo-icon" />
-          <span className="logo-text">GaganYatra</span>
+          <span className="logo-text">FlightBooker</span>
         </Link>
 
         {/* Desktop Navigation */}

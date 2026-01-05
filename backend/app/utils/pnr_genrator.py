@@ -6,19 +6,19 @@ import random
 import string
 
 
-def generate_pnr(booking_id: int | None = None, prefix: str = "GJ") -> str:
+def generate_pnr(booking_id: int | None = None, prefix: str = "FB") -> str:
     """
     Generate a unique PNR (Passenger Name Record) identifier.
     
     Format: PREFIX + YY + ALPHANUMERIC (6 chars)
-    Example: GJ25AB12CD
+    Example: FB25AB12CD
     
     Args:
         booking_id: Optional booking ID to incorporate
-        prefix: PNR prefix (default: GJ for GaganYatra)
+        prefix: PNR prefix (default: FB for FlightBooker)
     
     Returns:
-        PNR string (e.g., GJ25A1B2C3)
+        PNR string (e.g., FB25A1B2C3)
     """
     year_suffix = str(datetime.utcnow().year)[-2:]
     

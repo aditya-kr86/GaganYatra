@@ -16,12 +16,13 @@ _otp_store: dict[str, dict] = {}
 
 # Configuration - Set these in environment variables
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.mailer91.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_EMAIL = os.getenv("SMTP_EMAIL", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))  # Use 465 for SSL, 587 for STARTTLS
+SMTP_EMAIL = os.getenv("SMTP_EMAIL")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "true").lower() == "true"  # Use SSL by default
 OTP_EXPIRY_MINUTES = int(os.getenv("OTP_EXPIRY_MINUTES", "10"))
 
-# Set default socket timeout
+# Set default socket timeoutFailed to send email: (501, b'Bad HELO hostname syntax')
 socket.setdefaulttimeout(30)
 
 
@@ -118,15 +119,15 @@ def send_otp_email(to_email: str, otp: str, purpose: str = "registration") -> tu
     try:
         # Create message
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"Your GaganYatra Verification Code: {otp}"
-        msg["From"] = f"GaganYatra <{SMTP_EMAIL}>"
+        msg["Subject"] = f"Your FlightBooker Verification Code: {otp}"
+        msg["From"] = f"FlightBooker <{SMTP_EMAIL}>"
         msg["To"] = to_email
         
         # Email body
         text_content = f"""
 Hello,
 
-Your verification code for GaganYatra {purpose} is:
+Your verification code for FlightBooker {purpose} is:
 
 {otp}
 
@@ -135,7 +136,7 @@ This code will expire in {OTP_EXPIRY_MINUTES} minutes.
 If you didn't request this code, please ignore this email.
 
 Safe travels,
-The GaganYatra Team
+The FlightBooker Team
 """
 
         html_content = f"""
@@ -159,18 +160,18 @@ The GaganYatra Team
 <body>
     <div class="container">
         <div class="logo">
-            <span>✈️ GaganYatra</span>
+            <span>✈️ FlightBooker</span>
         </div>
         <h1>Verification Code</h1>
         <p>Hello,</p>
-        <p>You've requested a verification code for your GaganYatra account {purpose}. Please use the code below:</p>
+        <p>You've requested a verification code for your FlightBooker account {purpose}. Please use the code below:</p>
         <div class="otp-box">
             <div class="otp-code">{otp}</div>
             <div class="expiry">Expires in {OTP_EXPIRY_MINUTES} minutes</div>
         </div>
         <p>If you didn't request this code, you can safely ignore this email.</p>
         <div class="footer">
-            <p>Safe travels,<br>The GaganYatra Team</p>
+            <p>Safe travels,<br>The FlightBooker Team</p>
         </div>
     </div>
 </body>
@@ -180,13 +181,20 @@ The GaganYatra Team
         msg.attach(MIMEText(text_content, "plain"))
         msg.attach(MIMEText(html_content, "html"))
         
-        print(f"[EMAIL] Connecting to SMTP server: {SMTP_HOST}:{SMTP_PORT}")
+        print(f"[EMAIL] Connecting to SMTP server: {SMTP_HOST}:{SMTP_PORT} (SSL={SMTP_USE_SSL})")
         
-        # Send email - use hostname directly for proper SSL/TLS
-        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30)
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
+        # Send email - use SSL or STARTTLS based on configuration
+        if SMTP_USE_SSL:
+            # Use SMTP_SSL for port 465 (implicit SSL/TLS)
+            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=30)
+            server.ehlo("flightbooker.local")  # Use valid hostname for HELO
+        else:
+            # Use SMTP with STARTTLS for port 587
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30)
+            server.ehlo("flightbooker.local")
+            server.starttls()
+            server.ehlo("flightbooker.local")
+        
         server.login(SMTP_EMAIL, SMTP_PASSWORD)
         server.sendmail(SMTP_EMAIL, to_email, msg.as_string())
         server.quit()
@@ -252,8 +260,8 @@ def send_booking_confirmation_email(
     
     try:
         msg = MIMEMultipart("mixed")
-        msg["Subject"] = f"{'✅' if is_success else '❌'} GaganYatra Booking {status} - PNR: {pnr}"
-        msg["From"] = f"GaganYatra <{SMTP_EMAIL}>"
+        msg["Subject"] = f"{'✅' if is_success else '❌'} FlightBooker Booking {status} - PNR: {pnr}"
+        msg["From"] = f"FlightBooker <{SMTP_EMAIL}>"
         msg["To"] = to_email
         
         # Build ticket details HTML
@@ -298,7 +306,7 @@ def send_booking_confirmation_email(
 <body>
     <div class="container">
         <div class="logo">
-            <span>✈️ GaganYatra</span>
+            <span>✈️ FlightBooker</span>
         </div>
         <h1>Booking {status}</h1>
         <p style="text-align: center;">
@@ -327,8 +335,8 @@ def send_booking_confirmation_email(
         {"<p style='color: #ef4444;'>Unfortunately, your booking could not be completed. Please try again or contact support.</p>" if not is_success else ""}
         
         <div class="footer">
-            <p>Thank you for choosing GaganYatra!</p>
-            <p>For support, contact us at support@gaganyatra.com</p>
+            <p>Thank you for choosing FlightBooker!</p>
+            <p>For support, contact us at support@flightbooker.com</p>
         </div>
     </div>
 </body>
@@ -348,16 +356,20 @@ def send_booking_confirmation_email(
             encoders.encode_base64(pdf_attachment)
             pdf_attachment.add_header(
                 "Content-Disposition",
-                f"attachment; filename=GaganYatra_Ticket_{pnr}.pdf"
+                f"attachment; filename=FlightBooker_Ticket_{pnr}.pdf"
             )
             msg.attach(pdf_attachment)
         
         # Send email
-        print(f"[EMAIL] Sending booking confirmation to {to_email}")
-        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30)
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
+        print(f"[EMAIL] Sending booking confirmation to {to_email} (SSL={SMTP_USE_SSL})")
+        if SMTP_USE_SSL:
+            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=30)
+            server.ehlo("flightbooker.local")  # Use valid hostname for HELO
+        else:
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30)
+            server.ehlo("flightbooker.local")
+            server.starttls()
+            server.ehlo("flightbooker.local")
         server.login(SMTP_EMAIL, SMTP_PASSWORD)
         server.sendmail(SMTP_EMAIL, to_email, msg.as_string())
         server.quit()
@@ -396,8 +408,8 @@ def send_cancellation_email(
     
     try:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"❌ GaganYatra Booking Cancelled - PNR: {pnr}"
-        msg["From"] = f"GaganYatra <{SMTP_EMAIL}>"
+        msg["Subject"] = f"❌ FlightBooker Booking Cancelled - PNR: {pnr}"
+        msg["From"] = f"FlightBooker <{SMTP_EMAIL}>"
         msg["To"] = to_email
         
         # Build ticket details HTML
@@ -440,7 +452,7 @@ def send_cancellation_email(
 <body>
     <div class="container">
         <div class="logo">
-            <span>✈️ GaganYatra</span>
+            <span>✈️ FlightBooker</span>
         </div>
         <h1>Booking Cancelled</h1>
         <p style="text-align: center;">
@@ -472,7 +484,7 @@ def send_cancellation_email(
         
         <div class="footer">
             <p>We hope to see you again soon!</p>
-            <p>For support, contact us at support@gaganyatra.com</p>
+            <p>For support, contact us at support@flightbooker.com</p>
         </div>
     </div>
 </body>
@@ -482,7 +494,7 @@ def send_cancellation_email(
         text_content = f"""
 Booking Cancelled
 
-Your GaganYatra booking has been cancelled.
+Your FlightBooker booking has been cancelled.
 
 PNR: {pnr}
 Cancelled On: {cancelled_at}
@@ -491,18 +503,22 @@ Refund Amount: ₹{refund_amount:.2f}
 
 The refund will be credited to your original payment method within 5-7 business days.
 
-For support, contact us at support@gaganyatra.com
+For support, contact us at support@flightbooker.com
 """
         
         msg.attach(MIMEText(text_content, "plain"))
         msg.attach(MIMEText(html_content, "html"))
         
         # Send email
-        print(f"[EMAIL] Sending cancellation email to {to_email}")
-        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30)
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
+        print(f"[EMAIL] Sending cancellation email to {to_email} (SSL={SMTP_USE_SSL})")
+        if SMTP_USE_SSL:
+            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=30)
+            server.ehlo("flightbooker.local")  # Use valid hostname for HELO
+        else:
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30)
+            server.ehlo("flightbooker.local")
+            server.starttls()
+            server.ehlo("flightbooker.local")
         server.login(SMTP_EMAIL, SMTP_PASSWORD)
         server.sendmail(SMTP_EMAIL, to_email, msg.as_string())
         server.quit()

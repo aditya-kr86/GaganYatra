@@ -217,7 +217,7 @@ const ForgotPasswordPage = () => {
           <div className="auth-branding">
             <Link to="/" className="auth-logo">
               <Plane className="auth-logo-icon" />
-              <span>GaganYatra</span>
+              <span>FlightBooker</span>
             </Link>
             <h1>Forgot Password?</h1>
             <p>No worries! We'll help you reset your password securely.</p>

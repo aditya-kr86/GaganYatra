@@ -9,7 +9,7 @@ const Footer = () => {
         <div className="footer-brand">
           <div className="footer-logo">
             <Plane className="logo-icon" />
-            <span>GaganYatra</span>
+            <span>FlightBooker</span>
           </div>
           <p className="footer-tagline">
             Your trusted partner for seamless flight bookings. 
@@ -51,7 +51,7 @@ const Footer = () => {
           <div className="contact-info">
             <div className="contact-item">
               <Mail size={16} />
-              <span>support@gaganyatra.com</span>
+              <span>support@flightbooker.com</span>
             </div>
             <div className="contact-item">
               <Phone size={16} />
@@ -67,7 +67,7 @@ const Footer = () => {
 
       {/* Bottom Bar */}
       <div className="footer-bottom">
-        <p>&copy; {new Date().getFullYear()} GaganYatra. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} FlightBooker. All rights reserved.</p>
         <p>Made with ❤️ for travelers worldwide</p>
       </div>
     </footer>

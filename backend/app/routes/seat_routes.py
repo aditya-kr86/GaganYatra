@@ -23,8 +23,9 @@ def seats_by_airline_and_flight(airline_code: str, flight_number: str, db: Sessi
     class_list = [c[0] for c in classes if c[0]]
     items = []
     for cls in class_list:
-        available_q = db.query(Seat).filter(Seat.flight_id == fl.id, func.lower(Seat.seat_class) == func.lower(cls), Seat.is_available == True).order_by(Seat.id.asc())
-        booked_q = db.query(Seat).filter(Seat.flight_id == fl.id, func.lower(Seat.seat_class) == func.lower(cls), Seat.is_available == False).order_by(Seat.id.asc())
+        # Use direct string comparison since seat_class is an ENUM
+        available_q = db.query(Seat).filter(Seat.flight_id == fl.id, Seat.seat_class == cls, Seat.is_available == True).order_by(Seat.id.asc())
+        booked_q = db.query(Seat).filter(Seat.flight_id == fl.id, Seat.seat_class == cls, Seat.is_available == False).order_by(Seat.id.asc())
         available = available_q.all()
         booked = booked_q.all()
         items.append(SeatAvailabilityItem(

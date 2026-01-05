@@ -51,11 +51,11 @@ const AboutPage = () => {
           <div className="about-hero-content">
             <div className="hero-badge">
               <Plane size={20} />
-              <span>About GaganYatra</span>
+              <span>About FlightBooker</span>
             </div>
             <h1>Making Air Travel <span className="gradient-text">Simple & Affordable</span></h1>
             <p>
-              GaganYatra (गगगनयात्रा - Sky Journey) is India's trusted flight booking platform, 
+              FlightBooker is your trusted flight booking platform, 
               connecting millions of travelers to their dream destinations with the best prices 
               and seamless booking experience.
             </p>
@@ -80,8 +80,8 @@ const AboutPage = () => {
             <div className="story-content">
               <h2>Our Story</h2>
               <p>
-                Founded in 2024, GaganYatra was born from a simple idea: making air travel 
-                booking as effortless as possible for every Indian traveler. What started as 
+                Founded in 2024, FlightBooker was born from a simple idea: making air travel 
+                booking as effortless as possible for every traveler. What started as 
                 a small startup has grown into a comprehensive travel platform trusted by 
                 millions.
               </p>
@@ -127,7 +127,7 @@ const AboutPage = () => {
         <section className="about-team">
           <div className="team-header">
             <h2>Meet Our Team</h2>
-            <p>The passionate people behind GaganYatra</p>
+            <p>The passionate people behind FlightBooker</p>
           </div>
           <div className="team-grid">
             {team.map((member, index) => (
@@ -165,7 +165,7 @@ const AboutPage = () => {
         <section className="about-cta">
           <div className="cta-content">
             <h2>Ready to Start Your Journey?</h2>
-            <p>Book your next flight with GaganYatra and experience the difference</p>
+            <p>Book your next flight with FlightBooker and experience the difference</p>
             <Link to="/" className="cta-button">
               <Plane size={20} />
               Search Flights

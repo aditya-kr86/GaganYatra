@@ -39,11 +39,11 @@ def list_flights_api(
 def search_flights_api(
     origin: str | None = Query(None, min_length=3, max_length=10),
     destination: str | None = Query(None, min_length=3, max_length=10),
-    date: str | None = Query(None, regex=r"^\d{4}-\d{2}-\d{2}$"),
-    sort_by: str | None = Query(None, regex="^(price|duration)$"),
+    date: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    sort_by: str | None = Query(None, pattern="^(price|duration)$"),
     limit: int | None = Query(50, ge=1, le=200),
     days_flex: int | None = Query(0, ge=0, le=30),
-    tier: str | None = Query("ECONOMY", regex="^(ECONOMY|ECONOMY_FLEX|BUSINESS|FIRST|all|ALL)$"),
+    tier: str | None = Query("ECONOMY", pattern="^(ECONOMY|ECONOMY_FLEX|BUSINESS|FIRST|all|ALL)$"),
     page: int | None = Query(None, ge=1),
     page_size: int | None = Query(None, ge=1, le=200),
     db: Session = Depends(get_db)

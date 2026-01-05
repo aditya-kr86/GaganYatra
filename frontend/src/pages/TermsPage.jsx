@@ -9,7 +9,7 @@ const TermsPage = () => {
   const sections = [
     {
       title: '1. Acceptance of Terms',
-      content: `By accessing and using GaganYatra's website, mobile application, or any of our services, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions. If you do not agree to these terms, please do not use our services.
+      content: `By accessing and using FlightBooker's website, mobile application, or any of our services, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions. If you do not agree to these terms, please do not use our services.
 
 These terms apply to all visitors, users, and others who access or use our platform. We reserve the right to update or modify these terms at any time without prior notice. Your continued use of our services after any such changes constitutes your acceptance of the new terms.`
     },
@@ -27,7 +27,7 @@ You must be at least 18 years old to create an account. Users under 18 may use o
     },
     {
       title: '3. Booking and Reservations',
-      content: `When making a booking through GaganYatra:
+      content: `When making a booking through FlightBooker:
 
 • All bookings are subject to availability and confirmation
 • Prices are dynamic and may change until payment is completed
@@ -83,7 +83,7 @@ To request modifications, contact our customer support with your PNR. Changes ar
 • Arriving at the airport with sufficient time before departure
 • Completing web check-in or airport check-in as required
 
-GaganYatra is not responsible for denied boarding due to improper documentation, late arrival, or failure to meet entry requirements of your destination.`
+FlightBooker is not responsible for denied boarding due to improper documentation, late arrival, or failure to meet entry requirements of your destination.`
     },
     {
       title: '8. Baggage',
@@ -99,7 +99,7 @@ Check your booking confirmation for specific baggage limits. Additional baggage 
     },
     {
       title: '9. Limitation of Liability',
-      content: `GaganYatra's liability is limited as follows:
+      content: `FlightBooker's liability is limited as follows:
 
 • We act as an intermediary and are not the carrier
 • We are not liable for flight delays, cancellations, or schedule changes by airlines
@@ -123,7 +123,7 @@ Please review our Privacy Policy for detailed information on how we handle your 
     },
     {
       title: '11. Intellectual Property',
-      content: `All content on GaganYatra is protected:
+      content: `All content on FlightBooker is protected:
 
 • Website design, logos, and graphics are our intellectual property
 • Content may not be copied, reproduced, or distributed without permission
@@ -148,7 +148,7 @@ For any disputes, please first contact our customer support team. Most issues ca
       title: '13. Contact Information',
       content: `For questions about these terms:
 
-• Email: legal@gaganyatra.com
+• Email: legal@flightbooker.com
 • Phone: 1800-XXX-XXXX
 • Address: Tech Park, Sector 126, Noida, UP 201303, India
 
@@ -176,7 +176,7 @@ Our customer support team is available 24/7 to assist with any queries.`
 
           <div className="legal-intro">
             <p>
-              Welcome to GaganYatra. These Terms and Conditions ("Terms") govern your use of our 
+              Welcome to FlightBooker. These Terms and Conditions ("Terms") govern your use of our 
               website, mobile applications, and services (collectively, the "Platform"). By using 
               our Platform, you agree to these Terms in their entirety.
             </p>
@@ -197,9 +197,9 @@ Our customer support team is available 24/7 to assist with any queries.`
 
           <div className="legal-footer">
             <p>
-              By using GaganYatra's services, you acknowledge that you have read, understood, 
+              By using FlightBooker's services, you acknowledge that you have read, understood, 
               and agree to be bound by these Terms and Conditions. If you have any questions, 
-              please contact us at legal@gaganyatra.com.
+              please contact us at legal@flightbooker.com.
             </p>
           </div>
         </div>

@@ -11,9 +11,14 @@ alembic
 passlib[bcrypt]
 python-dotenv
 PyJWT
+psycopg2-binary
+
 
 # For PDF receipts
 pdfkit
+reportlab
+qrcode
+pillow
 # wkhtmltopdf-binary
 
 # Optional but useful

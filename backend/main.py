@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
 app = FastAPI(
-    title="GaganYatra - Flight Booking API",
+    title="FlightBooker - Flight Booking API",
     description="A comprehensive flight booking system with multi-level authentication",
     version="2.0.0",
 )
@@ -118,7 +118,7 @@ async def _simulator_loop(interval_minutes: int = 5):
 
 @app.get("/")
 def root():
-    return {"message": "welcome to GaganYatra - Flight Booking"}
+    return {"message": "welcome to FlightBooker - Flight Booking"}
 
 
 @app.on_event("startup")

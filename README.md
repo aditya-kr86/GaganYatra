@@ -1,214 +1,176 @@
-# **GaganYatra — Flight Booking Simulator with Dynamic Pricing**
+# FlightBooker — Flight Booking Simulator with Dynamic Pricing
 
-A modern Flight Booking & Pricing Simulation system built using **FastAPI**, designed to replicate real-world airline search, pricing algorithms, and booking workflows.
-
----
-
-## **Project Overview**
-
-GaganYatra simulates core airline operations with:
-
-* **Advanced Flight Search**
-* **Dynamic Pricing Engine** (seats, time, demand, fares)
-* **Booking Pipeline & PNR Generation**
-* **Role-Based Access** (Customer, Airline Staff, Airport Authority)
-* **Frontend UI (Jinja2 Templates)**
-* **PDF Receipt Generator**
-
-Originally built for the **Infosys Springboard Internship**, the architecture mirrors production-grade backend patterns.
+A high-performance, full-stack airline reservation simulation built using **FastAPI** (backend) and **React 19 + Vite** (frontend).  
+The system emulates real-world airline booking logic, including **algorithmic fare fluctuations, transactional seat locking, PNR generation, PDF ticket creation, and email notifications**.
 
 ---
 
-## **Tech Stack**
+## Project Summary
 
-### **Backend**
+FlightBooker was originally built as part of the **Infosys Springboard Internship Program**.  
+The goal of the project is to mirror production-style backend design while simulating airline booking constraints such as:
 
-* FastAPI (Async)
-* SQLAlchemy (ORM)
-* SQLite / PostgreSQL
-* Pydantic v2
-* Jinja2 Templates
-
-### **Utilities**
-
-* AsyncIO (background demand simulation)
-* ReportLab / WeasyPrint (PDF generation)
-* Uvicorn
-* Python Dotenv
+- **Volatile pricing influenced by inventory, time, and demand**
+- **Database-level seat locking to prevent overbooking**
+- **Asynchronous demand simulation**
+- **Unique PNR creation and QR-enabled PDF receipts**
+- **Automated booking emails using SMTP**
 
 ---
 
-## **Updated ER Diagram (Latest)**
-![ER Diagram](ER%20Diagram.png)`
+## Key Achievements
+
+- **Dynamic Pricing Engine:** Fare recalculation on every flight search request.
+- **Concurrency Safety:** Uses row-level locks (`SELECT FOR UPDATE` / `with_for_update`) to block parallel seat bookings.
+- **End-to-End Booking Simulation:** Seat reservation → PNR → receipt generation → email notification.
+- **Automated Assets:** QR-coded PDF ticket and SMTP-based alerts.
 
 ---
 
-## **Project Architecture**
+## Technology Stack
+
+### Backend (Python 3.11+)
+- **FastAPI** — asynchronous API framework
+- **SQLAlchemy 2.0 ORM** — database modeling & queries
+- **PostgreSQL** — row-level locking support
+- **Pydantic v2** — data validation & settings
+- **Celery + Redis** — async background jobs (email & demand simulation)
+- **JWT** — session token generation & role-based access (simulation layer)
+
+### Frontend (React 19)
+- **Vite** — fast bundler and dev server
+- **React Router 7** — navigation & routing
+- **Axios** — API communication with interceptors
+- **Lucide-React** — icons
+- **Tailwind CSS** — styling framework (custom CSS also supported)
+
+---
+
+## System Design
 
 ```
-GaganYatra/
-│
-├── backend
+FlightBooker/
+├── backend/
 │   ├── app/
-│   │   ├── models/                 # ORM Models
-│   │   ├── routes/                 # FastAPI Routers (module-wise)
-│   │   ├── schemas/                # Pydantic Models
-│   │   ├── services/               # Business Logic
-│   │   │   ├── flight_service.py   # Search + filters
-│   │   │   ├── pricing_engine.py   # Dynamic pricing engine
-│   │   │   ├── booking_service.py  # Booking + concurrency
-│   │   │   └── demand_simulator.py # Background demand updater
-│   │   ├── utils/                  # Helpers (PNR, PDF)
-│   │   └── config.py               # DB config (SQLite → PostgreSQL)
-│   ├── main.py                     # App entry
-│   ├── database.db
-│   ├── requirements.txt
-│   └── README.md
-│
-├── frontend
-│   └── templates/
-│
-├── ER Diagram.png
-├── LICENSE
-├── PROJECT_ARCHITECTURE.mmd
-└── README.md
+│   │   ├── auth/          # JWT, hashing & RBAC logic
+│   │   ├── models/        # SQLAlchemy database models
+│   │   ├── routes/        # API endpoints (versioned)
+│   │   ├── schemas/       # Pydantic request/response models
+│   │   ├── services/      # Core business logic
+│   │   │   ├── pricing_engine.py  # Fare calculation
+│   │   │   ├── flight_service.py  # Search & booking logic
+│   │   │   └── email_service.py   # SMTP email integration
+│   │   └── utils/         # PDF & QR generation helpers
+│   └── main.py            # FastAPI entry point
+└── frontend/
+    ├── src/
+    │   ├── api/           # Axios base config & interceptors
+    │   ├── components/    # Reusable UI elements
+    │   ├── context/       # Auth & booking state providers
+    │   └── pages/         # App views
+    └── App.jsx            # Root React component
 ```
 
 ---
 
-## **Core Features**
+## Pricing Model (Simulation Formula)
 
-### **1. Flight Search & Filters**
+Flight prices are influenced by the following multipliers:
 
-* Origin → Destination → Date
-* Sorting by fare, departure time, duration
-* Real airline/airport dataset simulation
+| Multiplier | Description | Behavior |
+|---|---|---|
+| **Inventory Factor** | Fare increases as seat availability decreases | Inverse scaling |
+| **Time Factor** | Fare rises as departure date approaches | Exponential increase |
+| **Demand Factor** | Simulated interest impact | Fluctuates dynamically |
+| **Cabin Class Factor** | Fixed multiplier for Business/Economy | Static scaling |
 
-### **2. Dynamic Pricing Engine** 
-
-Pricing adjusts in real-time based on:
-
-* **Remaining seats %**: 4 inventory tiers (0.9× to 1.25× multiplier)
-* **Time to departure**: 4 time windows (1.0× to 1.30× multiplier)
-* **Demand level**: Simulated demand states (low/medium/high/extreme)
-* **Fare tiers**: ECONOMY (1.0×), ECONOMY_FLEX (1.2×), BUSINESS (1.8×), FIRST (2.5×)
-
-Features:
-- Live recalculation during search & booking
-- Background demand simulator with AsyncIO + Celery support
-- Fare history persistence for audit trails
-- 60-second cache for performance optimization
-
-### **3. Booking Workflow** 
-
-* Multi-step booking process (booking → payment → confirmation)
-* Passenger details collection with validation
-* Dynamic fare computation (no manual price override)
-* Seat locking with database-level concurrency control (`with_for_update()`)
-* Payment validation (insufficient amount rejection)
-* Auto PNR + ticket generation on successful payment
-* Booking history retrieval & cancellation support
-* Multiple payment attempt handling
-
-**Status**: ~85% complete, undergoing stress testing
-
-### **4. Frontend UI**
-
-Planned features:
-* Search page with advanced filters
-* Real-time dynamic pricing results display
-* Multi-step booking page
-* Confirmation page with PNR display
-* **PDF / JSON receipt download**
-
-**Status**: Pending (Milestone 4)
+*(Actual numeric ranges are defined in the pricing engine module.)*
 
 ---
 
-## **Setup Instructions**
+## Core Capabilities
 
-### **1. Clone Repo**
+### 1. Intelligent Flight Search
+- Multi-airport hub support (Indian airports included)
+- Filterable results (price, duration, departure window)
+- Pagination-ready API responses for UI efficiency
 
-```bash
-git clone https://github.com/aditya-kr86/GaganYatra.git
-cd GaganYatra/backend
-```
+### 2. Transaction-Safe Booking Flow
+- Seat locking via `SELECT FOR UPDATE` to prevent over-allocation
+- Bookings wrapped in DB transactions for **atomic seat deduction**
+- PNR generated only after successful reservation
+- Ticket issued as **QR-embedded PDF**
 
-### **2. Virtual Environment**
+### 3. Admin & Management Simulation
+- Booking, revenue, and flight monitoring dashboard
+- Auto-generated PDF tickets
+- Email notifications for booking confirmation & cancellation
 
-```bash
-python -m venv .venv
-source .venv/bin/activate       # mac/Linux
-venv\Scripts\activate          # Windows
-```
+---
 
-### **3. Install Dependencies**
+## Installation & Local Setup
 
-```bash
-pip install -r requirements.txt
-```
-
-### **4. Run App**
-
-```bash
-uvicorn main:app --reload
-```
-
-### **5. (Optional) Start Celery Worker**
-
-For background demand simulation via Celery (requires Redis):
+### Backend Setup
 
 ```bash
 cd backend
-celery -A app.celery_app.celery_app worker --loglevel=info --pool=solo
+python -m venv venv
+source venv/bin/activate  # Windows (Git Bash): venv/Scripts/activate
+pip install -r requirements.txt
 ```
 
-**Note:** 
-- The `--pool=solo` flag is required for Windows compatibility
-- If Redis is unavailable, the system falls back to AsyncIO background tasks (no restart needed)
-- Run in a separate terminal from Uvicorn
+Create a `.env` file:
 
-### **6. Open Browser**
+```env
+DATABASE_URL=postgresql://user:pass@localhost:5432/flightbooker
+JWT_SECRET_KEY=your_secret_key
+SMTP_PASSWORD=your_app_password
+SMTP_EMAIL = your_email_address
+SMTP_HOST = your_smtp_host  # e.g., smtp.gmail.com
+SMTP_PORT = your_smtp_port  # e.g., 587
+```
 
-* API: `http://127.0.0.1:8000/docs`
-* UI Pages via Jinja2 templates
+Run the backend server:
+
+```bash
+python -m uvicorn main:app --reload --port 8000
+```
 
 ---
 
-## **Dynamic Pricing Logic (Simplified)**
+### Frontend Setup
 
+```bash
+cd frontend
+npm install
+npm run dev
 ```
-final_price = base_fare
-            + (remaining_seats_factor * remaining_seat_ratio)
-            + (time_factor * hours_left)
-            + (demand_factor * demand_index)
-```
-
-Editable inside:
-`app/services/pricing_engine.py`
 
 ---
 
-## **Project Milestones**
+## API Quick Reference
 
-| Milestone | Module                                      | Status         | Completion |
-| --------- | ------------------------------------------- | -------------- | ---------- |
-| **1**     | Core Flight Search & Data Management        |  Completed   | 100%       |
-| **2**     | Dynamic Pricing Engine                      |  Completed   | 100%       |
-| **3**     | Booking Workflow & Transaction Management   | In Progress | ~85%       |
-| **4**     | User Interface & API Integration            | Pending     | 0%         |
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/auth/login` | Returns JWT access token |
+| `GET` | `/flights/search` | Flight search with dynamic pricing |
+| `POST` | `/bookings/` | Seat lock & booking initiation |
+| `GET` | `/bookings/{pnr}/pdf` | Stream generated PDF ticket |
 
-### **Milestone 1 & 2 Achievements:**
-- Fully functional flight search with filtering, sorting, and pagination
-- Dynamic pricing engine with multi-factor calculations (inventory, time, demand, tiers)
-- Background demand simulator (AsyncIO + optional Celery worker)
-- Fare history tracking for audit trails
-- Comprehensive test coverage (unit + integration tests)
+---
 
-### **Milestone 3 Progress:**
-- Multi-step booking flow (booking → payment → confirmation)
-- PNR generation and seat allocation
-- Concurrency-safe transactions with database locks
-- Payment validation and multiple attempt handling
-- Booking cancellation and history retrieval endpoints
-- Enhanced stress testing and edge case handling (in progress)
+## Development Phases
+
+| Phase | Focus | Status |
+|---|---|:---:|
+| **Phase 1 — Foundation** | DB schema + Flight CRUD APIs | ✅ Completed |
+| **Phase 2 — Intelligence** | Dynamic Pricing + Async Demand Simulation | ✅ Completed |
+| **Phase 3 — Safety & Security** | Transactions + JWT Session Layer + Seat Locks | ✅ Completed |
+| **Phase 4 — Experience** | React UI + PDF & Email Integration + Admin Views | ✅ Completed |
+
+---
+
+## Closing Notes
+
+This project is a **logic-level simulation** and does not process real airline bookings or payments.  
+It is intended to study **pricing algorithms, concurrency safety, and backend engineering design for reservation systems**.

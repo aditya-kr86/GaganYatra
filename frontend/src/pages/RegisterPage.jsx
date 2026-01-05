@@ -244,9 +244,9 @@ const RegisterPage = () => {
           <div className="auth-branding">
             <Link to="/" className="auth-logo">
               <Plane className="auth-logo-icon" />
-              <span>GaganYatra</span>
+              <span>FlightBooker</span>
             </Link>
-            <h1>Join GaganYatra</h1>
+            <h1>Join FlightBooker</h1>
             <p>Create an account to start booking flights and manage your travel</p>
           </div>
           

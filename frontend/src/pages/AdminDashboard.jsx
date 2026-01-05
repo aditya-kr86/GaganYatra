@@ -24,6 +24,7 @@ const AdminDashboard = () => {
   const [airports, setAirports] = useState([]);
   const [airlines, setAirlines] = useState([]);
   const [users, setUsers] = useState([]);
+  const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -46,27 +47,31 @@ const AdminDashboard = () => {
 
   const fetchData = async () => {
     setLoading(true);
+    setError('');
     try {
-      const [airportsRes, airlinesRes, usersRes, flightsRes] = await Promise.all([
-        api.get('/airports'),
-        api.get('/airlines'),
-        api.get('/users', { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: [] })),
-        api.get('/flights'),
+      const [airportsRes, airlinesRes, usersRes, flightsRes, bookingsRes] = await Promise.all([
+        api.get('/airports/').catch(() => ({ data: [] })),
+        api.get('/airlines/').catch(() => ({ data: [] })),
+        api.get('/users/').catch(() => ({ data: [] })),
+        api.get('/flights/').catch(() => ({ data: [] })),
+        api.get('/bookings/').catch(() => ({ data: [] })),
       ]);
 
-      setAirports(airportsRes.data);
-      setAirlines(airlinesRes.data);
+      setAirports(airportsRes.data || []);
+      setAirlines(airlinesRes.data || []);
       setUsers(usersRes.data || []);
+      setBookings(bookingsRes.data || []);
       
       setStats({
         totalFlights: flightsRes.data?.length || 0,
         totalAirports: airportsRes.data?.length || 0,
         totalAirlines: airlinesRes.data?.length || 0,
         totalUsers: usersRes.data?.length || 0,
-        totalBookings: 0,
+        totalBookings: bookingsRes.data?.length || 0,
       });
     } catch (err) {
-      setError('Failed to load data');
+      console.error('Failed to load admin data:', err);
+      setError('Failed to load data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -157,7 +162,7 @@ const AdminDashboard = () => {
         <div className="sidebar-header">
           <Link to="/" className="sidebar-logo">
             <Plane size={28} />
-            <span>GaganYatra</span>
+            <span>FlightBooker</span>
           </Link>
           <span className="admin-badge">Admin</span>
         </div>
@@ -431,9 +436,41 @@ const AdminDashboard = () => {
 
           {/* Bookings Tab */}
           {activeTab === 'bookings' && (
-            <div className="empty-state">
-              <Ticket size={48} />
-              <p>Bookings management coming soon!</p>
+            <div className="data-table-container">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>PNR</th>
+                    <th>Reference</th>
+                    <th>Status</th>
+                    <th>Total Fare</th>
+                    <th>Passengers</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bookings.map(booking => (
+                    <tr key={booking.booking_reference}>
+                      <td><strong>{booking.pnr || 'Pending'}</strong></td>
+                      <td>{booking.booking_reference}</td>
+                      <td>
+                        <span className={`status-badge ${booking.status?.toLowerCase().replace(' ', '-')}`}>
+                          {booking.status}
+                        </span>
+                      </td>
+                      <td>₹{booking.total_fare?.toLocaleString() || 0}</td>
+                      <td>{booking.tickets?.length || 0}</td>
+                      <td>{new Date(booking.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {bookings.length === 0 && (
+                <div className="empty-state">
+                  <Ticket size={48} />
+                  <p>No bookings found.</p>
+                </div>
+              )}
             </div>
           )}
         </div>

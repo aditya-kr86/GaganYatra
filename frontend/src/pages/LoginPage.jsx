@@ -58,7 +58,7 @@ const LoginPage = () => {
           <div className="auth-branding">
             <Link to="/" className="auth-logo">
               <Plane className="auth-logo-icon" />
-              <span>GaganYatra</span>
+              <span>FlightBooker</span>
             </Link>
             <h1>Welcome Back!</h1>
             <p>Sign in to continue your journey and manage your bookings</p>

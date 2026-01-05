@@ -35,11 +35,21 @@ def ensure_database_exists(database_url: str) -> None:
 # MySQL DB creation check (won’t run in Postgres mode)
 ensure_database_exists(DATABASE_URL)
 
-# SQLAlchemy Engine
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-)
+# SQLAlchemy Engine with optimized pool settings
+engine_kwargs = {}
+
+if DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+    # Connection pool optimization for PostgreSQL/MySQL
+    engine_kwargs.update({
+        "pool_size": 10,           # Number of connections to keep open
+        "max_overflow": 20,        # Extra connections when pool is exhausted
+        "pool_pre_ping": True,     # Verify connections before use
+        "pool_recycle": 3600,      # Recycle connections after 1 hour
+    })
+
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 
 # Session setup
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

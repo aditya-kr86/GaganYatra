@@ -49,11 +49,11 @@ const AdminDashboard = () => {
     setLoading(true);
     setError('');
     try {
-      const [airportsRes, airlinesRes, usersRes, flightsRes, bookingsRes] = await Promise.all([
+      const [airportsRes, airlinesRes, usersRes, flightStatsRes, bookingsRes] = await Promise.all([
         api.get('/airports/').catch(() => ({ data: [] })),
         api.get('/airlines/').catch(() => ({ data: [] })),
         api.get('/users/').catch(() => ({ data: [] })),
-        api.get('/flights/').catch(() => ({ data: [] })),
+        api.get('/flights/stats').catch(() => ({ data: { total_flights: 0 } })),
         api.get('/bookings/').catch(() => ({ data: [] })),
       ]);
 
@@ -63,7 +63,7 @@ const AdminDashboard = () => {
       setBookings(bookingsRes.data || []);
       
       setStats({
-        totalFlights: flightsRes.data?.length || 0,
+        totalFlights: flightStatsRes.data?.total_flights || 0,
         totalAirports: airportsRes.data?.length || 0,
         totalAirlines: airlinesRes.data?.length || 0,
         totalUsers: usersRes.data?.length || 0,

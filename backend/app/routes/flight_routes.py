@@ -25,12 +25,36 @@ from app.models.airport import Airport
 router = APIRouter()
 
 
+@router.get("/stats")
+def get_flight_stats(db: Session = Depends(get_db)):
+    """Get flight statistics for admin dashboard - fast count queries."""
+    from sqlalchemy import func
+    from datetime import datetime, timezone
+    
+    now = datetime.now(timezone.utc)
+    if now.tzinfo is not None:
+        now = now.replace(tzinfo=None)
+    
+    total_flights = db.query(func.count(Flight.id)).scalar() or 0
+    upcoming_flights = db.query(func.count(Flight.id)).filter(Flight.departure_time >= now).scalar() or 0
+    total_seats = db.query(func.count(Seat.id)).scalar() or 0
+    available_seats = db.query(func.count(Seat.id)).filter(Seat.is_available == True).scalar() or 0
+    
+    return {
+        "total_flights": total_flights,
+        "upcoming_flights": upcoming_flights,
+        "total_seats": total_seats,
+        "available_seats": available_seats,
+        "booked_seats": total_seats - available_seats,
+    }
+
+
 @router.get("/", response_model=list[FlightResponse])
 def list_flights_api(
-    limit: int | None = Query(None, ge=1, le=200),
+    limit: int | None = Query(100, ge=1, le=200),  # Default to 100 for performance
     db: Session = Depends(get_db)
 ):
-    """Return all flights (optionally limited)."""
+    """Return all flights (optionally limited). Default limit is 100 for performance."""
     flights = search_flights(db, limit=limit)
     return flights
 

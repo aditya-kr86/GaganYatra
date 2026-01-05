@@ -3,15 +3,23 @@
 This script is idempotent: running it multiple times won't create duplicate
 airlines/airports/aircrafts or flights with the same flight_number + departure_time.
 
+PERFORMANCE OPTIMIZED:
+- Uses bulk inserts for flights and seats
+- Batched commits (every 100 flights)
+- Pre-cached templates to avoid repeated queries
+- Minimal database round-trips
+- Progress indicators for visibility
+
 Usage:
     python scripts/seed_db.py
 
 It will create:
-- Several airlines
-- Several airports
-- Several aircraft models (with seat counts)
-- Aircraft seat templates for one aircraft
-- Multiple flights across the next 30 days between popular city pairs
+- 8 Major Indian Airlines
+- 25+ Indian Airports (major cities + tier-2)
+- 10+ Aircraft models with realistic configurations
+- Aircraft seat templates with proper seat numbering (1A, 1B, etc.)
+- 500+ flights across the next 30 days with realistic schedules
+- Realistic pricing based on route distance and demand
 
 After running, start the server and call `/flights/search` to see dynamic prices.
 """
@@ -19,6 +27,7 @@ from datetime import datetime, timedelta, timezone
 import random
 import os
 import sys
+import time
 
 # Ensure the repository `backend` folder is on sys.path so `import app` works
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -33,8 +42,193 @@ from app.models.aircraft_seat_template import AircraftSeatTemplate
 from app.models.flight import Flight
 from app.models.seat import Seat
 
+# SQLAlchemy for bulk operations
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+
+
+# ============================================================================
+# REALISTIC INDIAN AVIATION DATA
+# ============================================================================
+
+AIRLINES_DATA = [
+    # (Name, IATA Code)
+    ("IndiGo", "6E"),
+    ("Air India", "AI"),
+    ("SpiceJet", "SG"),
+    ("Vistara", "UK"),
+    ("Go First", "G8"),
+    ("AirAsia India", "I5"),
+    ("Akasa Air", "QP"),
+    ("Air India Express", "IX"),
+]
+
+AIRPORTS_DATA = [
+    # (IATA Code, Name, City, Country)
+    # Metro Cities
+    ("DEL", "Indira Gandhi International Airport", "New Delhi", "India"),
+    ("BOM", "Chhatrapati Shivaji Maharaj International Airport", "Mumbai", "India"),
+    ("BLR", "Kempegowda International Airport", "Bengaluru", "India"),
+    ("MAA", "Chennai International Airport", "Chennai", "India"),
+    ("CCU", "Netaji Subhas Chandra Bose International Airport", "Kolkata", "India"),
+    ("HYD", "Rajiv Gandhi International Airport", "Hyderabad", "India"),
+    # Major Cities
+    ("AMD", "Sardar Vallabhbhai Patel International Airport", "Ahmedabad", "India"),
+    ("PNQ", "Pune Airport", "Pune", "India"),
+    ("GOI", "Goa International Airport", "Goa", "India"),
+    ("COK", "Cochin International Airport", "Kochi", "India"),
+    ("JAI", "Jaipur International Airport", "Jaipur", "India"),
+    ("LKO", "Chaudhary Charan Singh International Airport", "Lucknow", "India"),
+    ("GAU", "Lokpriya Gopinath Bordoloi International Airport", "Guwahati", "India"),
+    ("IXC", "Chandigarh International Airport", "Chandigarh", "India"),
+    ("PAT", "Jay Prakash Narayan International Airport", "Patna", "India"),
+    # Tier-2 Cities
+    ("VNS", "Lal Bahadur Shastri International Airport", "Varanasi", "India"),
+    ("IXB", "Bagdogra Airport", "Siliguri", "India"),
+    ("TRV", "Trivandrum International Airport", "Thiruvananthapuram", "India"),
+    ("IXR", "Birsa Munda Airport", "Ranchi", "India"),
+    ("BBI", "Biju Patnaik International Airport", "Bhubaneswar", "India"),
+    ("IDR", "Devi Ahilyabai Holkar Airport", "Indore", "India"),
+    ("NAG", "Dr. Babasaheb Ambedkar International Airport", "Nagpur", "India"),
+    ("SXR", "Sheikh ul-Alam International Airport", "Srinagar", "India"),
+    ("IXJ", "Jammu Airport", "Jammu", "India"),
+    ("ATQ", "Sri Guru Ram Dass Jee International Airport", "Amritsar", "India"),
+]
+
+AIRCRAFT_DATA = [
+    # (Model, Total Capacity, Economy, Business, Premium Economy, First Class)
+    ("Airbus A320neo", 180, 156, 12, 12, 0),
+    ("Airbus A321neo", 220, 188, 20, 12, 0),
+    ("Airbus A320ceo", 174, 150, 12, 12, 0),
+    ("Boeing 737-800", 168, 144, 12, 12, 0),
+    ("Boeing 737 MAX 8", 178, 154, 12, 12, 0),
+    ("ATR 72-600", 70, 70, 0, 0, 0),
+    ("Airbus A350-900", 300, 226, 36, 24, 14),
+    ("Boeing 787-8 Dreamliner", 256, 198, 30, 18, 10),
+    ("Boeing 777-300ER", 342, 256, 44, 28, 14),
+    ("Airbus A330-300", 280, 212, 36, 24, 8),
+]
+
+# Route data with approximate flight duration (minutes) and base price range
+# Format: (origin, destination, duration_min, duration_max, base_price_min, base_price_max)
+ROUTES_DATA = [
+    # Delhi Hub Routes
+    ("DEL", "BOM", 120, 140, 4500, 8500),
+    ("DEL", "BLR", 150, 175, 5000, 9500),
+    ("DEL", "MAA", 160, 185, 5500, 10000),
+    ("DEL", "CCU", 130, 155, 4000, 7500),
+    ("DEL", "HYD", 130, 150, 4500, 8000),
+    ("DEL", "AMD", 90, 110, 3500, 6500),
+    ("DEL", "GOI", 145, 165, 5000, 9000),
+    ("DEL", "JAI", 55, 70, 2500, 5000),
+    ("DEL", "LKO", 75, 90, 3000, 5500),
+    ("DEL", "SXR", 85, 100, 4500, 8500),
+    ("DEL", "ATQ", 65, 80, 3000, 5500),
+    ("DEL", "IXC", 55, 70, 2500, 4500),
+    ("DEL", "GAU", 165, 190, 5500, 10500),
+    ("DEL", "PAT", 100, 120, 3500, 6500),
+    ("DEL", "VNS", 80, 95, 3000, 5500),
+    
+    # Mumbai Hub Routes
+    ("BOM", "DEL", 120, 140, 4500, 8500),
+    ("BOM", "BLR", 90, 110, 3500, 6500),
+    ("BOM", "MAA", 110, 130, 4000, 7500),
+    ("BOM", "CCU", 160, 185, 5500, 10000),
+    ("BOM", "HYD", 85, 105, 3500, 6500),
+    ("BOM", "GOI", 60, 75, 2500, 5000),
+    ("BOM", "PNQ", 45, 55, 2000, 4000),
+    ("BOM", "AMD", 65, 80, 2500, 5000),
+    ("BOM", "COK", 115, 135, 4000, 7500),
+    ("BOM", "JAI", 100, 120, 3500, 6500),
+    ("BOM", "IDR", 70, 85, 3000, 5500),
+    ("BOM", "NAG", 75, 90, 3000, 5500),
+    
+    # Bengaluru Hub Routes
+    ("BLR", "DEL", 150, 175, 5000, 9500),
+    ("BLR", "BOM", 90, 110, 3500, 6500),
+    ("BLR", "MAA", 55, 70, 2500, 4500),
+    ("BLR", "CCU", 155, 175, 5500, 10000),
+    ("BLR", "HYD", 65, 80, 2500, 4500),
+    ("BLR", "COK", 60, 75, 2500, 4500),
+    ("BLR", "GOI", 70, 85, 3000, 5500),
+    ("BLR", "PNQ", 90, 105, 3500, 6500),
+    ("BLR", "TRV", 70, 85, 3000, 5500),
+    
+    # Chennai Hub Routes
+    ("MAA", "DEL", 160, 185, 5500, 10000),
+    ("MAA", "BOM", 110, 130, 4000, 7500),
+    ("MAA", "BLR", 55, 70, 2500, 4500),
+    ("MAA", "CCU", 145, 165, 5000, 9500),
+    ("MAA", "HYD", 70, 85, 3000, 5500),
+    ("MAA", "COK", 70, 85, 3000, 5500),
+    ("MAA", "TRV", 80, 95, 3500, 6500),
+    
+    # Kolkata Hub Routes
+    ("CCU", "DEL", 130, 155, 4000, 7500),
+    ("CCU", "BOM", 160, 185, 5500, 10000),
+    ("CCU", "BLR", 155, 175, 5500, 10000),
+    ("CCU", "MAA", 145, 165, 5000, 9500),
+    ("CCU", "HYD", 130, 150, 4500, 8500),
+    ("CCU", "GAU", 70, 85, 3000, 5500),
+    ("CCU", "IXB", 55, 70, 2500, 4500),
+    ("CCU", "BBI", 65, 80, 2500, 4500),
+    ("CCU", "PAT", 60, 75, 2500, 4500),
+    ("CCU", "IXR", 55, 70, 2500, 4500),
+    
+    # Hyderabad Hub Routes
+    ("HYD", "DEL", 130, 150, 4500, 8000),
+    ("HYD", "BOM", 85, 105, 3500, 6500),
+    ("HYD", "BLR", 65, 80, 2500, 4500),
+    ("HYD", "MAA", 70, 85, 3000, 5500),
+    ("HYD", "CCU", 130, 150, 4500, 8500),
+    ("HYD", "VNS", 100, 120, 3500, 6500),
+    
+    # Tourist/Leisure Routes
+    ("GOI", "DEL", 145, 165, 5000, 9000),
+    ("GOI", "BOM", 60, 75, 2500, 5000),
+    ("GOI", "BLR", 70, 85, 3000, 5500),
+    ("SXR", "DEL", 85, 100, 4500, 8500),
+    ("SXR", "BOM", 160, 180, 6000, 11000),
+    ("ATQ", "DEL", 65, 80, 3000, 5500),
+    ("ATQ", "BOM", 135, 155, 5000, 9000),
+]
+
+# Typical departure times for different flight types (hour, minute)
+DEPARTURE_SLOTS = [
+    (5, 30), (6, 0), (6, 30), (6, 45),      # Early morning
+    (7, 0), (7, 15), (7, 30), (7, 45),      # Morning rush
+    (8, 0), (8, 30), (9, 0), (9, 30),       # Morning
+    (10, 0), (10, 30), (11, 0), (11, 30),   # Mid-morning
+    (12, 0), (12, 30), (13, 0), (13, 30),   # Afternoon
+    (14, 0), (14, 30), (15, 0), (15, 30),   # Afternoon
+    (16, 0), (16, 30), (17, 0), (17, 30),   # Evening
+    (18, 0), (18, 30), (19, 0), (19, 30),   # Evening rush
+    (20, 0), (20, 30), (21, 0), (21, 30),   # Night
+    (22, 0), (22, 30), (23, 0),             # Late night
+]
+
+# Flight frequency weights (more flights on popular routes)
+HIGH_FREQUENCY_ROUTES = [
+    ("DEL", "BOM"), ("BOM", "DEL"),
+    ("DEL", "BLR"), ("BLR", "DEL"),
+    ("BOM", "BLR"), ("BLR", "BOM"),
+    ("DEL", "HYD"), ("HYD", "DEL"),
+    ("BOM", "HYD"), ("HYD", "BOM"),
+]
+
+MEDIUM_FREQUENCY_ROUTES = [
+    ("DEL", "MAA"), ("MAA", "DEL"),
+    ("DEL", "CCU"), ("CCU", "DEL"),
+    ("BOM", "MAA"), ("MAA", "BOM"),
+    ("BLR", "MAA"), ("MAA", "BLR"),
+    ("DEL", "GOI"), ("GOI", "DEL"),
+    ("BOM", "GOI"), ("GOI", "BOM"),
+    ("DEL", "AMD"), ("AMD", "DEL"),
+]
+
 
 def create_if_not_exists(session, model, lookup: dict, defaults: dict | None = None):
+    """Create record if not exists - used for small reference data."""
     obj = session.query(model).filter_by(**lookup).first()
     if obj:
         return obj
@@ -43,142 +237,413 @@ def create_if_not_exists(session, model, lookup: dict, defaults: dict | None = N
         params.update(defaults)
     obj = model(**params)
     session.add(obj)
-    session.commit()
-    session.refresh(obj)
+    session.flush()  # Flush instead of commit for batching
     return obj
 
 
+def generate_seat_number(row: int, seat_position: int, seats_per_row: int = 6) -> str:
+    """Generate realistic seat number like 1A, 12F, 23C etc."""
+    seat_letters = {
+        6: ['A', 'B', 'C', 'D', 'E', 'F'],
+        4: ['A', 'B', 'C', 'D'],
+        3: ['A', 'B', 'C'],
+    }
+    letters = seat_letters.get(seats_per_row, seat_letters[6])
+    return f"{row}{letters[seat_position % len(letters)]}"
+
+
+def generate_seat_templates_data(aircraft_id: int, aircraft) -> list[dict]:
+    """Generate seat template data as dictionaries for bulk insert."""
+    templates = []
+    current_row = 1
+    
+    # First class (4 seats per row)
+    first_count = getattr(aircraft, 'first_count', 0) or 0
+    if first_count > 0:
+        rows_needed = (first_count + 3) // 4
+        created = 0
+        for row in range(current_row, current_row + rows_needed):
+            for seat_pos in range(4):
+                if created < first_count:
+                    templates.append({
+                        "aircraft_id": aircraft_id,
+                        "seat_number": generate_seat_number(row, seat_pos, 4),
+                        "seat_class": "First"
+                    })
+                    created += 1
+        current_row += rows_needed + 1
+    
+    # Business class (6 seats per row)
+    business_count = getattr(aircraft, 'business_count', 0) or 0
+    if business_count > 0:
+        rows_needed = (business_count + 5) // 6
+        created = 0
+        for row in range(current_row, current_row + rows_needed):
+            for seat_pos in range(6):
+                if created < business_count:
+                    templates.append({
+                        "aircraft_id": aircraft_id,
+                        "seat_number": generate_seat_number(row, seat_pos, 6),
+                        "seat_class": "Business"
+                    })
+                    created += 1
+        current_row += rows_needed
+    
+    # Premium Economy (6 seats per row)
+    premium_count = getattr(aircraft, 'premium_economy_count', 0) or 0
+    if premium_count > 0:
+        rows_needed = (premium_count + 5) // 6
+        created = 0
+        for row in range(current_row, current_row + rows_needed):
+            for seat_pos in range(6):
+                if created < premium_count:
+                    templates.append({
+                        "aircraft_id": aircraft_id,
+                        "seat_number": generate_seat_number(row, seat_pos, 6),
+                        "seat_class": "Premium Economy"
+                    })
+                    created += 1
+        current_row += rows_needed
+    
+    # Economy class (6 seats per row)
+    economy_count = getattr(aircraft, 'economy_count', 0) or 0
+    if economy_count > 0:
+        rows_needed = (economy_count + 5) // 6
+        created = 0
+        for row in range(current_row, current_row + rows_needed):
+            for seat_pos in range(6):
+                if created < economy_count:
+                    templates.append({
+                        "aircraft_id": aircraft_id,
+                        "seat_number": generate_seat_number(row, seat_pos, 6),
+                        "seat_class": "Economy"
+                    })
+                    created += 1
+    
+    return templates
+
+
+def get_route_frequency(origin: str, dest: str) -> int:
+    """Get number of flights per day based on route popularity."""
+    route = (origin, dest)
+    if route in HIGH_FREQUENCY_ROUTES:
+        return random.randint(6, 8)  # Reduced for faster seeding
+    elif route in MEDIUM_FREQUENCY_ROUTES:
+        return random.randint(3, 5)
+    else:
+        return random.randint(1, 2)
+
+
+def get_demand_level(days_ahead: int, is_weekend: bool, is_peak_hour: bool) -> str:
+    """Calculate demand level based on various factors."""
+    base_score = 0
+    if is_weekend:
+        base_score += 2
+    if is_peak_hour:
+        base_score += 2
+    if days_ahead <= 3:
+        base_score += 3
+    elif days_ahead <= 7:
+        base_score += 2
+    elif days_ahead <= 14:
+        base_score += 1
+    base_score += random.randint(-1, 2)
+    
+    if base_score >= 5:
+        return "extreme"
+    elif base_score >= 3:
+        return "high"
+    elif base_score >= 1:
+        return "medium"
+    return "low"
+
+
+def calculate_dynamic_price(base_min: int, base_max: int, demand_level: str, days_ahead: int) -> float:
+    """Calculate price based on demand and booking window."""
+    base = random.randint(base_min, base_max)
+    demand_multipliers = {"low": 0.85, "medium": 1.0, "high": 1.3, "extreme": 1.6}
+    
+    if days_ahead <= 3:
+        days_multiplier = 1.5
+    elif days_ahead <= 7:
+        days_multiplier = 1.25
+    elif days_ahead <= 14:
+        days_multiplier = 1.1
+    else:
+        days_multiplier = 1.0
+    
+    price = base * demand_multipliers.get(demand_level, 1.0) * days_multiplier
+    return float(round(price / 50) * 50)
+
+
 def seed():
+    """Main seed function with performance optimizations."""
+    start_time = time.time()
+    
+    # Create tables
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
+    
     try:
-        # Airlines
-        airlines = [
-            ("IndiGo", "6E"),
-            ("Air India", "AI"),
-            ("SpiceJet", "SG"),
-            ("Vistara", "UK"),
-        ]
-        airline_objs = []
-        for name, code in airlines:
-            airline_objs.append(create_if_not_exists(db, Airline, {"code": code}, {"name": name}))
+        print("=" * 60)
+        print("⚡ FLIGHTBOOKER DATABASE SEEDING (OPTIMIZED)")
+        print("=" * 60)
+        
+        # =============================================
+        # SEED AIRLINES (small dataset - normal insert)
+        # =============================================
+        print("\n📌 Seeding Airlines...")
+        airline_objs = {}
+        for name, code in AIRLINES_DATA:
+            airline = create_if_not_exists(db, Airline, {"code": code}, {"name": name})
+            airline_objs[code] = airline
+        db.commit()
+        print(f"  ✓ {len(airline_objs)} airlines ready")
 
-        # Airports (code, name, city, country)
-        airports = [
-            ("DEL", "Indira Gandhi International Airport", "Delhi", "India"),
-            ("BOM", "Chhatrapati Shivaji Maharaj Int'l", "Mumbai", "India"),
-            ("BLR", "Kempegowda International Airport", "Bengaluru", "India"),
-            ("MAA", "Chennai International Airport", "Chennai", "India"),
-            ("CCU", "Netaji Subhas Chandra Bose Intl", "Kolkata", "India"),
-        ]
-        airport_objs = []
-        for code, name, city, country in airports:
-            airport_objs.append(create_if_not_exists(db, Airport, {"code": code}, {"name": name, "city": city, "country": country}))
+        # =============================================
+        # SEED AIRPORTS (small dataset - normal insert)
+        # =============================================
+        print("\n📌 Seeding Airports...")
+        airport_objs = {}
+        for code, name, city, country in AIRPORTS_DATA:
+            airport = create_if_not_exists(
+                db, Airport, {"code": code}, 
+                {"name": name, "city": city, "country": country}
+            )
+            airport_objs[code] = airport
+        db.commit()
+        print(f"  ✓ {len(airport_objs)} airports ready")
 
-        # Aircrafts
-        # We'll create three aircraft types with simple capacities and class counts
-        ac_data = [
-            ("A320neo", 180, {"economy_count": 150, "business_count": 30}),
-            ("B737-800", 160, {"economy_count": 140, "business_count": 20}),
-            ("A330-300", 280, {"economy_count": 220, "business_count": 40, "premium_economy_count": 20}),
-        ]
+        # =============================================
+        # SEED AIRCRAFT (small dataset - normal insert)
+        # =============================================
+        print("\n📌 Seeding Aircraft...")
         aircraft_objs = []
-        for model, capacity, extras in ac_data:
-            defaults = {"capacity": capacity}
-            defaults.update(extras)
-            aircraft_objs.append(create_if_not_exists(db, Aircraft, {"model": model}, defaults))
+        aircraft_by_id = {}
+        for model, capacity, economy, business, premium, first in AIRCRAFT_DATA:
+            defaults = {
+                "capacity": capacity,
+                "economy_count": economy,
+                "business_count": business,
+                "premium_economy_count": premium,
+                "first_count": first,
+            }
+            aircraft = create_if_not_exists(db, Aircraft, {"model": model}, defaults)
+            aircraft_objs.append(aircraft)
+            aircraft_by_id[aircraft.id] = aircraft
+        db.commit()
+        print(f"  ✓ {len(aircraft_objs)} aircraft models ready")
 
-        # Optionally create an aircraft seat template for A330-300 (to demonstrate template path)
-        a330 = db.query(Aircraft).filter(Aircraft.model == "A330-300").first()
-        if a330:
-            # create a small template sample if not exists
-            existing = db.query(AircraftSeatTemplate).filter(AircraftSeatTemplate.aircraft_id == a330.id).first()
-            if not existing:
-                tpl_rows = []
-                # First 8 seats as First (1..8), next 40 Business, next 20 Premium, rest Economy
-                idx = 1
-                for _ in range(8):
-                    tpl_rows.append(AircraftSeatTemplate(aircraft_id=a330.id, seat_number=str(idx), seat_class="First"))
-                    idx += 1
-                for _ in range(40):
-                    tpl_rows.append(AircraftSeatTemplate(aircraft_id=a330.id, seat_number=str(idx), seat_class="Business"))
-                    idx += 1
-                for _ in range(20):
-                    tpl_rows.append(AircraftSeatTemplate(aircraft_id=a330.id, seat_number=str(idx), seat_class="Premium Economy"))
-                    idx += 1
-                for _ in range(212):
-                    tpl_rows.append(AircraftSeatTemplate(aircraft_id=a330.id, seat_number=str(idx), seat_class="Economy"))
-                    idx += 1
-                db.add_all(tpl_rows)
-                db.commit()
+        # =============================================
+        # CREATE AIRCRAFT SEAT TEMPLATES (bulk insert)
+        # =============================================
+        print("\n📌 Creating Aircraft Seat Templates...")
+        
+        # Check which aircraft already have templates
+        existing_template_aircraft = set(
+            r[0] for r in db.query(AircraftSeatTemplate.aircraft_id).distinct().all()
+        )
+        
+        all_templates = []
+        for aircraft in aircraft_objs:
+            if aircraft.id not in existing_template_aircraft:
+                templates = generate_seat_templates_data(aircraft.id, aircraft)
+                all_templates.extend(templates)
+                print(f"  Preparing {len(templates)} templates for {aircraft.model}")
+        
+        if all_templates:
+            # Bulk insert all templates at once
+            db.execute(AircraftSeatTemplate.__table__.insert(), all_templates)
+            db.commit()
+            print(f"  ✓ Bulk inserted {len(all_templates)} seat templates")
+        else:
+            print(f"  ✓ All templates already exist")
 
-        # Create flights across next 30 days for selected city pairs
-        city_pairs = [
-            ("DEL", "BOM"),
-            ("DEL", "BLR"),
-            ("BOM", "MAA"),
-            ("BLR", "CCU"),
-            ("MAA", "DEL"),
-        ]
+        # =============================================
+        # PRE-CACHE SEAT TEMPLATES FOR FAST LOOKUP
+        # =============================================
+        print("\n📌 Caching seat templates...")
+        template_cache = {}
+        all_templates_db = db.query(AircraftSeatTemplate).all()
+        for tpl in all_templates_db:
+            if tpl.aircraft_id not in template_cache:
+                template_cache[tpl.aircraft_id] = []
+            template_cache[tpl.aircraft_id].append({
+                "seat_number": tpl.seat_number,
+                "seat_class": tpl.seat_class
+            })
+        print(f"  ✓ Cached templates for {len(template_cache)} aircraft types")
 
+        # =============================================
+        # PRE-FETCH EXISTING FLIGHTS TO AVOID DUPLICATES
+        # =============================================
+        print("\n📌 Checking existing flights...")
+        existing_flights = set()
+        for f in db.query(Flight.flight_number, Flight.departure_time).all():
+            existing_flights.add((f.flight_number, f.departure_time))
+        print(f"  ✓ Found {len(existing_flights)} existing flights")
+
+        # =============================================
+        # SEED FLIGHTS FOR NEXT 30 DAYS (BATCHED BULK INSERT)
+        # =============================================
+        print("\n📌 Seeding Flights for next 30 days...")
         now = datetime.now(timezone.utc)
-        flight_count = 0
+        
+        # Prepare airline and aircraft lists for random selection
+        airline_list = list(airline_objs.values())
+        
+        # Categorize aircraft by capacity for route matching
+        short_haul_aircraft = [a for a in aircraft_objs if a.capacity <= 180]
+        medium_haul_aircraft = [a for a in aircraft_objs if 150 <= a.capacity <= 220]
+        long_haul_aircraft = [a for a in aircraft_objs if a.capacity >= 180]
+        
+        # Track used flight numbers to avoid duplicates
+        used_flight_numbers = set()
+        
+        # Batch counters
+        BATCH_SIZE = 50  # Commit every N flights
+        flight_batch = []
+        seat_batch = []
+        total_flights = 0
+        total_seats = 0
+        batch_flight_ids = []
+        
         for days_ahead in range(1, 31):
             day = now + timedelta(days=days_ahead)
-            # create 2-3 flights per pair per day at different times
-            for origin, dest in city_pairs:
-                num_flights = random.choice([1, 2, 3])
-                for i in range(num_flights):
-                    dep_time = datetime(day.year, day.month, day.day, 6 + i * 4, random.choice([0, 15, 30, 45]))
-                    arr_time = dep_time + timedelta(hours=random.choice([1, 2, 3, 4]))
-                    airline = random.choice(airline_objs)
-                    aircraft = random.choice(aircraft_objs)
-                    flight_number = f"{airline.code}{random.randint(100,999)}"
-                    base_price = float(random.randint(3000, 12000))
-
-                    # prevent duplicate flight for same number & departure_time
-                    exists = db.query(Flight).filter(Flight.flight_number == flight_number, Flight.departure_time == dep_time).first()
-                    if exists:
+            is_weekend = day.weekday() >= 5
+            day_flights = 0
+            
+            for route in ROUTES_DATA:
+                origin, dest, dur_min, dur_max, price_min, price_max = route
+                
+                if origin not in airport_objs or dest not in airport_objs:
+                    continue
+                
+                num_flights = get_route_frequency(origin, dest)
+                selected_slots = random.sample(
+                    DEPARTURE_SLOTS, 
+                    min(num_flights, len(DEPARTURE_SLOTS))
+                )
+                
+                for slot in selected_slots:
+                    hour, minute = slot
+                    is_peak_hour = hour in [7, 8, 9, 17, 18, 19, 20]
+                    
+                    dep_time = datetime(day.year, day.month, day.day, hour, minute)
+                    duration = random.randint(dur_min, dur_max)
+                    arr_time = dep_time + timedelta(minutes=duration)
+                    
+                    airline = random.choice(airline_list)
+                    
+                    # Select appropriate aircraft
+                    if duration <= 90:
+                        aircraft = random.choice(short_haul_aircraft or aircraft_objs)
+                    elif duration <= 150:
+                        aircraft = random.choice(medium_haul_aircraft or aircraft_objs)
+                    else:
+                        aircraft = random.choice(long_haul_aircraft or aircraft_objs)
+                    
+                    # Generate unique flight number
+                    flight_number = None
+                    for _ in range(20):
+                        flight_num = random.randint(100, 9999)
+                        candidate = f"{airline.code}{flight_num}"
+                        flight_key = (candidate, dep_time.date().isoformat())
+                        if flight_key not in used_flight_numbers and (candidate, dep_time) not in existing_flights:
+                            flight_number = candidate
+                            used_flight_numbers.add(flight_key)
+                            break
+                    
+                    if not flight_number:
                         continue
-
-                    f = Flight(
+                    
+                    demand_level = get_demand_level(days_ahead, is_weekend, is_peak_hour)
+                    base_price = calculate_dynamic_price(price_min, price_max, demand_level, days_ahead)
+                    
+                    # Create flight object
+                    flight = Flight(
                         airline_id=airline.id,
                         aircraft_id=aircraft.id,
                         flight_number=flight_number,
-                        departure_airport_id=db.query(Airport).filter(Airport.code == origin).first().id,
-                        arrival_airport_id=db.query(Airport).filter(Airport.code == dest).first().id,
+                        departure_airport_id=airport_objs[origin].id,
+                        arrival_airport_id=airport_objs[dest].id,
                         departure_time=dep_time,
                         arrival_time=arr_time,
                         base_price=base_price,
-                        demand_level=random.choice(["low", "medium", "high"]),
+                        demand_level=demand_level,
                     )
-                    db.add(f)
-                    db.commit()
-                    db.refresh(f)
-
-                    # create seats for this flight using aircraft template if available
-                    templates = db.query(AircraftSeatTemplate).filter(AircraftSeatTemplate.aircraft_id == aircraft.id).all()
-                    seats_to_create = []
+                    
+                    db.add(flight)
+                    db.flush()  # Get the flight ID without full commit
+                    
+                    # Create seats from cached templates
+                    templates = template_cache.get(aircraft.id, [])
                     if templates:
                         for tpl in templates:
-                            seats_to_create.append(Seat(flight_id=f.id, seat_number=tpl.seat_number, seat_class=tpl.seat_class, is_available=True))
+                            is_available = random.random() > 0.1
+                            seat_batch.append({
+                                "flight_id": flight.id,
+                                "seat_number": tpl["seat_number"],
+                                "seat_class": tpl["seat_class"],
+                                "is_available": is_available
+                            })
                     else:
-                        # use aircraft capacity
-                        cap = int(getattr(aircraft, 'capacity', 0) or 150)
-                        for sidx in range(1, cap + 1):
-                            seats_to_create.append(Seat(flight_id=f.id, seat_number=str(sidx), seat_class="Economy", is_available=True))
-
-                    if seats_to_create:
-                        db.add_all(seats_to_create)
+                        # Fallback economy seats
+                        cap = getattr(aircraft, 'capacity', 150) or 150
+                        seat_count = 0
+                        for row in range(1, (cap // 6) + 2):
+                            for seat_pos in range(6):
+                                if seat_count >= cap:
+                                    break
+                                is_available = random.random() > 0.1
+                                seat_batch.append({
+                                    "flight_id": flight.id,
+                                    "seat_number": generate_seat_number(row, seat_pos, 6),
+                                    "seat_class": "Economy",
+                                    "is_available": is_available
+                                })
+                                seat_count += 1
+                    
+                    total_flights += 1
+                    day_flights += 1
+                    
+                    # Batch commit for performance
+                    if total_flights % BATCH_SIZE == 0:
+                        if seat_batch:
+                            db.execute(Seat.__table__.insert(), seat_batch)
+                            total_seats += len(seat_batch)
+                            seat_batch = []
                         db.commit()
-
-                    flight_count += 1
-
-        print(f"Seeded {len(airline_objs)} airlines, {len(airport_objs)} airports, {len(aircraft_objs)} aircrafts, {flight_count} flights")
+                        print(f"    💾 Committed batch: {total_flights} flights, {total_seats} seats", end='\r')
+            
+            print(f"  Day +{days_ahead:2d} ({day.strftime('%Y-%m-%d')}): {day_flights} flights" + " " * 20)
+        
+        # Final batch commit
+        if seat_batch:
+            db.execute(Seat.__table__.insert(), seat_batch)
+            total_seats += len(seat_batch)
+        db.commit()
+        
+        elapsed = time.time() - start_time
+        
+        print("\n" + "=" * 60)
+        print("✅ SEEDING COMPLETE!")
+        print("=" * 60)
+        print(f"  ✓ Airlines:  {len(airline_objs)}")
+        print(f"  ✓ Airports:  {len(airport_objs)}")
+        print(f"  ✓ Aircraft:  {len(aircraft_objs)}")
+        print(f"  ✓ Flights:   {total_flights}")
+        print(f"  ✓ Seats:     {total_seats}")
+        print(f"  ⏱️  Time:     {elapsed:.2f} seconds")
+        print("=" * 60)
         
         # Create default admin user
         create_admin_user(db)
         
+    except Exception as e:
+        db.rollback()
+        print(f"\n❌ Error during seeding: {e}")
+        raise
     finally:
         db.close()
 

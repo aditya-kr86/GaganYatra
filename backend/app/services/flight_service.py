@@ -487,24 +487,52 @@ def ensure_all_flight_seats(db: Session) -> int:
     """Ensure every flight has Seat rows created based on its aircraft capacity.
 
     Returns the number of flights for which seats were created.
+    
+    OPTIMIZED: Uses bulk queries and batched inserts for performance.
     """
+    from sqlalchemy import exists, and_
+    
+    # Step 1: Find flights WITHOUT any seats (single query)
+    flights_with_seats = db.query(Seat.flight_id).distinct().subquery()
+    flights_needing_seats = db.query(Flight).filter(
+        ~Flight.id.in_(db.query(flights_with_seats.c.flight_id))
+    ).all()
+    
+    if not flights_needing_seats:
+        return 0
+    
+    # Step 2: Pre-cache all aircraft data
+    aircraft_cache = {a.id: a for a in db.query(Aircraft).all()}
+    
+    # Step 3: Pre-cache all seat templates by aircraft_id
+    template_cache = {}
+    for tpl in db.query(AircraftSeatTemplate).all():
+        if tpl.aircraft_id not in template_cache:
+            template_cache[tpl.aircraft_id] = []
+        template_cache[tpl.aircraft_id].append({
+            "seat_number": tpl.seat_number,
+            "seat_class": tpl.seat_class
+        })
+    
+    # Step 4: Build all seats in memory
+    all_seats = []
     created = 0
-    flights = db.query(Flight).all()
-    for flight in flights:
-        # check if flight already has seats
-        existing = db.query(Seat).filter(Seat.flight_id == flight.id).first()
-        if existing:
-            continue
-        # create seats from aircraft counts or templates (use same logic as create_flight)
-        aircraft = db.query(Aircraft).filter(Aircraft.id == flight.aircraft_id).first()
+    
+    for flight in flights_needing_seats:
+        aircraft = aircraft_cache.get(flight.aircraft_id)
         if not aircraft or not getattr(aircraft, 'capacity', None):
             continue
-
-        seats_to_create = []
-        templates = db.query(AircraftSeatTemplate).filter(AircraftSeatTemplate.aircraft_id == aircraft.id).order_by(AircraftSeatTemplate.id.asc()).all()
+        
+        templates = template_cache.get(aircraft.id, [])
+        
         if templates:
             for tpl in templates:
-                seats_to_create.append(Seat(flight_id=flight.id, seat_number=tpl.seat_number, seat_class=tpl.seat_class, is_available=True))
+                all_seats.append({
+                    "flight_id": flight.id,
+                    "seat_number": tpl["seat_number"],
+                    "seat_class": tpl["seat_class"],
+                    "is_available": True
+                })
         else:
             eco = int(getattr(aircraft, 'economy_count', 0) or 0)
             prem = int(getattr(aircraft, 'premium_economy_count', 0) or 0)
@@ -518,7 +546,12 @@ def ensure_all_flight_seats(db: Session) -> int:
             def add_block(count, cls_name):
                 nonlocal idx
                 for _ in range(count):
-                    seats_to_create.append(Seat(flight_id=flight.id, seat_number=str(idx), seat_class=cls_name, is_available=True))
+                    all_seats.append({
+                        "flight_id": flight.id,
+                        "seat_number": str(idx),
+                        "seat_class": cls_name,
+                        "is_available": True
+                    })
                     idx += 1
 
             if first > 0:
@@ -530,12 +563,24 @@ def ensure_all_flight_seats(db: Session) -> int:
             if eco > 0:
                 add_block(eco, "Economy")
 
-            if not seats_to_create:
-                seats_to_create = [Seat(flight_id=flight.id, seat_number=str(i), seat_class="Economy", is_available=True) for i in range(1, cap+1)]
-
-        if seats_to_create:
-            db.add_all(seats_to_create)
-            db.commit()
-            created += 1
-
+            if idx == 1:  # No seats added
+                for i in range(1, cap + 1):
+                    all_seats.append({
+                        "flight_id": flight.id,
+                        "seat_number": str(i),
+                        "seat_class": "Economy",
+                        "is_available": True
+                    })
+        
+        created += 1
+    
+    # Step 5: Bulk insert all seats at once
+    if all_seats:
+        # Use batched bulk insert for very large datasets
+        BATCH_SIZE = 10000
+        for i in range(0, len(all_seats), BATCH_SIZE):
+            batch = all_seats[i:i + BATCH_SIZE]
+            db.execute(Seat.__table__.insert(), batch)
+        db.commit()
+    
     return created

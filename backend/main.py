@@ -45,10 +45,12 @@ app.add_middleware(
 )
 
 _sim_task = None
+_just_seeded = False  # Flag to skip seat reconciliation after fresh seed
 
 
 def run_seed_if_empty():
     """Run seed script if database is empty."""
+    global _just_seeded
     from app.models.airport import Airport
     from app.models.user import User
     from scripts.seed_db import seed
@@ -62,6 +64,7 @@ def run_seed_if_empty():
             print("📦 Database is empty, running seed script...")
             db.close()
             seed()
+            _just_seeded = True  # Skip seat reconciliation - seed already created seats
             print("✅ Seed data created successfully!")
         else:
             print(f"📊 Database already has {airport_count} airports and {admin_count} admin(s)")
@@ -74,20 +77,24 @@ def run_seed_if_empty():
 
 @app.on_event("startup")
 def create_tables_on_startup():
+    global _just_seeded
     # Ensure tables exist on startup for a smooth developer experience
     Base.metadata.create_all(bind=engine)
     
     # Auto-seed database if empty
     run_seed_if_empty()
     
-    # Ensure seats exist for existing flights (reconcile seed data)
-    try:
-        db = SessionLocal()
-        created = ensure_all_flight_seats(db)
-        if created:
-            print(f"✅ Created seats for {created} flights")
-    finally:
-        db.close()
+    # Ensure seats exist for existing flights (skip if we just seeded)
+    if not _just_seeded:
+        try:
+            db = SessionLocal()
+            created = ensure_all_flight_seats(db)
+            if created:
+                print(f"✅ Created seats for {created} flights")
+        finally:
+            db.close()
+    else:
+        print("⏭️  Skipping seat reconciliation (fresh seed already created seats)")
     
     # Check Celery status
     from app.celery_app import CELERY_ENABLED
@@ -95,6 +102,8 @@ def create_tables_on_startup():
         print("✅ Celery background task queue enabled (Redis available)")
     else:
         print("⚠️  Celery not available - using asyncio for background tasks")
+    
+    print("🚀 Application started successfully!")
 
 
 async def _simulator_loop(interval_minutes: int = 5):
@@ -104,10 +113,15 @@ async def _simulator_loop(interval_minutes: int = 5):
     It calls `run_demand_simulation_once` and logs results.
     """
     logger = logging.getLogger("gagan.demand_sim")
+    
+    # Wait a bit before first run to let the app fully start
+    await asyncio.sleep(30)  # 30 second delay before first simulation
+    
     while True:
         try:
             db = SessionLocal()
-            updated = run_demand_simulation_once(db, within_hours=720)
+            # Limit to fewer flights per run for performance
+            updated = run_demand_simulation_once(db, within_hours=168)  # 7 days instead of 30
             if updated:
                 logger.info("[Simulator] Updated demand for %s flights", updated)
             db.close()

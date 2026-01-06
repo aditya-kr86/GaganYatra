@@ -1,12 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plane, Menu, X, User, LogOut, Settings, Ticket, ChevronDown } from 'lucide-react';
+import { Plane, Menu, X, User, LogOut, Settings, Ticket, ChevronDown, Search, AlertCircle, Clock, MapPin, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../api/config';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isPnrModalOpen, setIsPnrModalOpen] = useState(false);
+  const [pnrInput, setPnrInput] = useState('');
+  const [pnrStatus, setPnrStatus] = useState(null);
+  const [pnrLoading, setPnrLoading] = useState(false);
+  const [pnrError, setPnrError] = useState('');
   const dropdownRef = useRef(null);
+  const pnrModalRef = useRef(null);
   const { user, isAuthenticated, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
 
@@ -19,6 +26,12 @@ const Navbar = () => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
       }
+      if (pnrModalRef.current && !pnrModalRef.current.contains(event.target)) {
+        // Don't close if clicking the button that opens the modal
+        if (!event.target.closest('.pnr-check-btn')) {
+          setIsPnrModalOpen(false);
+        }
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -29,6 +42,44 @@ const Navbar = () => {
     setIsDropdownOpen(false);
     setIsMenuOpen(false);
     navigate('/');
+  };
+
+  const handlePnrCheck = async (e) => {
+    e.preventDefault();
+    if (!pnrInput.trim()) {
+      setPnrError('Please enter a PNR number');
+      return;
+    }
+    
+    setPnrLoading(true);
+    setPnrError('');
+    setPnrStatus(null);
+    
+    try {
+      const response = await api.get(`/bookings/pnr-status/${pnrInput.trim().toUpperCase()}`);
+      setPnrStatus(response.data);
+    } catch (err) {
+      setPnrError(err.response?.data?.detail || 'PNR not found. Please check and try again.');
+    } finally {
+      setPnrLoading(false);
+    }
+  };
+
+  const closePnrModal = () => {
+    setIsPnrModalOpen(false);
+    setPnrInput('');
+    setPnrStatus(null);
+    setPnrError('');
+  };
+
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'confirmed': return '#10b981';
+      case 'cancelled': return '#ef4444';
+      case 'pending': return '#f59e0b';
+      case 'payment pending': return '#f59e0b';
+      default: return '#6b7280';
+    }
   };
 
   return (
@@ -44,6 +95,10 @@ const Navbar = () => {
         <div className="navbar-links">
           <Link to="/" className="nav-link">Home</Link>
           <Link to="/flights" className="nav-link">Flights</Link>
+          <button className="nav-link pnr-check-btn" onClick={() => setIsPnrModalOpen(true)}>
+            <Search size={16} />
+            PNR Status
+          </button>
           {isAuthenticated() && (
             <Link to="/my-bookings" className="nav-link">My Bookings</Link>
           )}
@@ -118,6 +173,10 @@ const Navbar = () => {
         <div className="mobile-menu">
           <Link to="/" className="mobile-link" onClick={toggleMenu}>Home</Link>
           <Link to="/flights" className="mobile-link" onClick={toggleMenu}>Flights</Link>
+          <button className="mobile-link pnr-check-btn" onClick={() => { toggleMenu(); setIsPnrModalOpen(true); }}>
+            <Search size={16} />
+            PNR Status
+          </button>
           {isAuthenticated() && (
             <Link to="/my-bookings" className="mobile-link" onClick={toggleMenu}>My Bookings</Link>
           )}
@@ -142,6 +201,92 @@ const Navbar = () => {
                 <Link to="/login" className="btn btn-outline" onClick={toggleMenu}>Login</Link>
                 <Link to="/register" className="btn btn-primary" onClick={toggleMenu}>Sign Up</Link>
               </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* PNR Status Modal */}
+      {isPnrModalOpen && (
+        <div className="pnr-modal-overlay">
+          <div className="pnr-modal" ref={pnrModalRef}>
+            <div className="pnr-modal-header">
+              <h3><Search size={20} /> Check PNR Status</h3>
+              <button className="pnr-modal-close" onClick={closePnrModal}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handlePnrCheck} className="pnr-search-form">
+              <div className="pnr-input-group">
+                <input
+                  type="text"
+                  placeholder="Enter PNR Number (e.g., ABC123)"
+                  value={pnrInput}
+                  onChange={(e) => setPnrInput(e.target.value.toUpperCase())}
+                  className="pnr-input"
+                  maxLength={10}
+                  autoFocus
+                />
+                <button type="submit" className="pnr-search-btn" disabled={pnrLoading}>
+                  {pnrLoading ? <Loader2 size={18} className="spin" /> : <Search size={18} />}
+                  {pnrLoading ? 'Checking...' : 'Check Status'}
+                </button>
+              </div>
+            </form>
+
+            {pnrError && (
+              <div className="pnr-error">
+                <AlertCircle size={16} />
+                {pnrError}
+              </div>
+            )}
+
+            {pnrStatus && (
+              <div className="pnr-result">
+                <div className="pnr-result-header">
+                  <div className="pnr-number">
+                    <span className="label">PNR</span>
+                    <span className="value">{pnrStatus.pnr}</span>
+                  </div>
+                  <div className="pnr-status" style={{ backgroundColor: getStatusColor(pnrStatus.status) }}>
+                    {pnrStatus.status}
+                  </div>
+                </div>
+
+                <div className="pnr-tickets">
+                  {pnrStatus.tickets.map((ticket, index) => (
+                    <div key={index} className="pnr-ticket-card">
+                      <div className="ticket-passenger">
+                        <User size={16} />
+                        <span>{ticket.passenger_name}</span>
+                      </div>
+                      
+                      <div className="ticket-flight-info">
+                        <div className="flight-number">
+                          <Plane size={16} />
+                          <span>{ticket.flight_number}</span>
+                        </div>
+                        <div className="flight-route">
+                          <MapPin size={16} />
+                          <span>{ticket.route}</span>
+                        </div>
+                      </div>
+
+                      <div className="ticket-details">
+                        <div className="detail-item">
+                          <Clock size={14} />
+                          <span>{ticket.departure_date} at {ticket.departure_time}</span>
+                        </div>
+                        <div className="detail-item">
+                          <Ticket size={14} />
+                          <span>{ticket.seat_class} {ticket.seat_number ? `- Seat ${ticket.seat_number}` : ''}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>

@@ -6,12 +6,86 @@ from app.services.flight_service import create_booking, get_booking_by_pnr, canc
 from app.services.email_service import send_cancellation_email
 from app.models.flight import Flight
 from app.models.user import User
+from app.models.booking import Booking
 from app.schemas.booking_schema import BookingUpdate
 from app.auth.dependencies import get_current_user, require_admin
 from fastapi import Body
 from datetime import datetime
+from pydantic import BaseModel
+from typing import List, Optional
 
 router = APIRouter()
+
+
+# ============== Public PNR Status Check ==============
+
+class PNRTicketStatus(BaseModel):
+    """Minimal ticket info for public PNR status check."""
+    passenger_name: str
+    flight_number: str
+    route: str  # DEL → BOM
+    departure_date: str  # 2026-01-15
+    departure_time: str  # 14:30
+    seat_number: Optional[str] = None
+    seat_class: str
+
+class PNRStatusResponse(BaseModel):
+    """Public PNR status response - minimal info without sensitive data."""
+    pnr: str
+    status: str
+    journey_date: str
+    tickets: List[PNRTicketStatus]
+
+
+@router.get("/pnr-status/{pnr}", response_model=PNRStatusResponse)
+def check_pnr_status(pnr: str, db: Session = Depends(get_db)):
+    """
+    Public endpoint to check PNR status without authentication.
+    Returns minimal ticket information like real-world airline PNR check.
+    """
+    # Search by PNR or booking_reference
+    booking = db.query(Booking).filter(
+        (Booking.pnr == pnr.upper()) | (Booking.booking_reference == pnr)
+    ).first()
+    
+    if not booking:
+        raise HTTPException(
+            status_code=404, 
+            detail="PNR not found. Please check the PNR and try again."
+        )
+    
+    if not booking.tickets:
+        raise HTTPException(
+            status_code=404,
+            detail="No tickets found for this PNR."
+        )
+    
+    # Get journey date from first ticket
+    first_ticket = booking.tickets[0]
+    journey_date = first_ticket.departure_time.strftime("%Y-%m-%d") if first_ticket.departure_time else "N/A"
+    
+    # Format tickets with minimal info
+    tickets = []
+    for ticket in booking.tickets:
+        tickets.append(PNRTicketStatus(
+            passenger_name=ticket.passenger_name,
+            flight_number=ticket.flight_number,
+            route=f"{ticket.departure_airport} → {ticket.arrival_airport}",
+            departure_date=ticket.departure_time.strftime("%Y-%m-%d") if ticket.departure_time else "N/A",
+            departure_time=ticket.departure_time.strftime("%H:%M") if ticket.departure_time else "N/A",
+            seat_number=ticket.seat_number,
+            seat_class=ticket.seat_class,
+        ))
+    
+    return PNRStatusResponse(
+        pnr=booking.pnr or booking.booking_reference,
+        status=booking.status,
+        journey_date=journey_date,
+        tickets=tickets,
+    )
+
+
+# ============== Existing Code ==============
 
 
 def _format_flight_seat(seat_class: str, seat_number: str) -> str:

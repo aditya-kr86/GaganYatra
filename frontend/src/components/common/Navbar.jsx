@@ -14,7 +14,7 @@ const Navbar = () => {
   const [pnrError, setPnrError] = useState('');
   const dropdownRef = useRef(null);
   const pnrModalRef = useRef(null);
-  const { user, isAuthenticated, logout, isAdmin } = useAuth();
+  const { user, isAuthenticated, logout, isAdmin, isAirlineStaff, isAirportAuthority } = useAuth();
   const navigate = useNavigate();
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
@@ -106,6 +106,12 @@ const Navbar = () => {
           {isAdmin() && (
             <Link to="/admin/dashboard" className="nav-link admin-link">Admin</Link>
           )}
+          {isAirlineStaff() && (
+            <Link to="/airline/dashboard" className="nav-link admin-link">Airline Dashboard</Link>
+          )}
+          {isAirportAuthority() && (
+            <Link to="/airport/dashboard" className="nav-link admin-link">Airport Dashboard</Link>
+          )}
         </div>
 
         {/* Auth Buttons / User Menu */}
@@ -139,6 +145,18 @@ const Navbar = () => {
                     <Link to="/admin/dashboard" className="dropdown-item" onClick={() => setIsDropdownOpen(false)}>
                       <User size={16} />
                       Admin Dashboard
+                    </Link>
+                  )}
+                  {isAirlineStaff() && (
+                    <Link to="/airline/dashboard" className="dropdown-item" onClick={() => setIsDropdownOpen(false)}>
+                      <Plane size={16} />
+                      Airline Dashboard
+                    </Link>
+                  )}
+                  {isAirportAuthority() && (
+                    <Link to="/airport/dashboard" className="dropdown-item" onClick={() => setIsDropdownOpen(false)}>
+                      <MapPin size={16} />
+                      Airport Dashboard
                     </Link>
                   )}
                   <div className="dropdown-divider"></div>
@@ -183,6 +201,12 @@ const Navbar = () => {
           <Link to="/about" className="mobile-link" onClick={toggleMenu}>About</Link>
           {isAdmin() && (
             <Link to="/admin/dashboard" className="mobile-link" onClick={toggleMenu}>Admin Dashboard</Link>
+          )}
+          {isAirlineStaff() && (
+            <Link to="/airline/dashboard" className="mobile-link" onClick={toggleMenu}>Airline Dashboard</Link>
+          )}
+          {isAirportAuthority() && (
+            <Link to="/airport/dashboard" className="mobile-link" onClick={toggleMenu}>Airport Dashboard</Link>
           )}
           <div className="mobile-auth">
             {isAuthenticated() ? (

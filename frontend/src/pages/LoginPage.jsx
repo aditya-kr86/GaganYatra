@@ -38,6 +38,10 @@ const LoginPage = () => {
         // Redirect based on role
         if (result.user.role === 'admin') {
           navigate('/admin/dashboard');
+        } else if (result.user.role === 'airline_staff') {
+          navigate('/airline/dashboard');
+        } else if (result.user.role === 'airport_authority') {
+          navigate('/airport/dashboard');
         } else {
           navigate(from, { replace: true });
         }

@@ -11,6 +11,8 @@ from app.routes.aircraft_routes import router as aircraft_router
 from app.routes.user_routes import router as user_router
 from app.routes.seat_routes import router as seat_router
 from app.routes.ticket_routes import router as ticket_router
+from app.routes.airline_staff_routes import router as airline_staff_router
+from app.routes.airport_authority_routes import router as airport_authority_router
 from app.config import SessionLocal
 from app.services.flight_service import ensure_all_flight_seats
 from app.services.demand_simulator import run_demand_simulation_once
@@ -135,6 +137,12 @@ def root():
     return {"message": "welcome to FlightBooker - Flight Booking"}
 
 
+@app.get("/health")
+def health_check():
+    """Health check endpoint to verify API is running."""
+    return {"status": "healthy", "service": "FlightBooker API"}
+
+
 @app.on_event("startup")
 async def start_background_tasks():
     # Launch the simulator loop as a background asyncio task
@@ -175,6 +183,10 @@ app.include_router(seat_router, prefix="/seats", tags=["Seats"])
 app.include_router(booking_router, prefix="/bookings", tags=["Bookings"])
 app.include_router(payment_router, prefix="/payments", tags=["Payments"])
 app.include_router(ticket_router, prefix="/tickets", tags=["Tickets"])
+
+# Staff Dashboards
+app.include_router(airline_staff_router, prefix="/airline-staff", tags=["Airline Staff"])
+app.include_router(airport_authority_router, prefix="/airport-authority", tags=["Airport Authority"])
 
 # Simulation control (Admin)
 from app.routes.demand_routes import router as demand_router

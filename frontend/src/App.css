@@ -45,6 +45,42 @@
   --transition-slow: 500ms ease;
 }
 
+/* ===== Backend Warning Banner ===== */
+.backend-warning {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+  padding: 12px 24px;
+  text-align: center;
+  font-weight: 500;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.backend-warning button {
+  background: white;
+  color: #dc2626;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.backend-warning button:hover {
+  background: #fef2f2;
+  transform: scale(1.05);
+}
+
 /* ===== Reset & Base ===== */
 * {
   margin: 0;

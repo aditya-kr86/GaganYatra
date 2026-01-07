@@ -508,7 +508,7 @@ def seed():
         total_seats = 0
         batch_flight_ids = []
         
-        for days_ahead in range(1, 31):
+        for days_ahead in range(0, 31):  # Start from today (day 0)
             day = now + timedelta(days=days_ahead)
             is_weekend = day.weekday() >= 5
             day_flights = 0
@@ -640,6 +640,26 @@ def seed():
         # Create default admin user
         create_admin_user(db)
         
+        # Create airline staff users
+        create_airline_staff_users(db, airline_objs)
+        
+        # Create airport authority users
+        create_airport_authority_users(db, airport_objs)
+        
+        print("\n" + "=" * 60)
+        print("📋 STAFF CREDENTIALS SUMMARY")
+        print("=" * 60)
+        print("ADMIN:")
+        print("  Email: admin@flightbooker.com")
+        print("  Password: Admin@123")
+        print("\nAIRLINE STAFF (example):")
+        print("  IndiGo: staff@6e.flightbooker.com / 6EStaff@123")
+        print("  Air India: staff@ai.flightbooker.com / AIStaff@123")
+        print("\nAIRPORT AUTHORITY (example):")
+        print("  Delhi: authority@del.airport.in / DELAuth@123")
+        print("  Mumbai: authority@bom.airport.in / BOMAuth@123")
+        print("=" * 60)
+        
     except Exception as e:
         db.rollback()
         print(f"\n❌ Error during seeding: {e}")
@@ -677,6 +697,82 @@ def create_admin_user(db):
     db.refresh(admin)
     print(f"Created admin user: {admin_email} with password: {admin_password}")
     return admin
+
+
+def create_airline_staff_users(db, airlines: dict):
+    """Create staff users for each airline."""
+    from app.models.user import User
+    from app.auth.password import hash_password
+    
+    print("\n📌 Creating Airline Staff Users...")
+    created_count = 0
+    
+    for airline_code, airline in airlines.items():
+        # Create one staff user per airline
+        email = f"staff@{airline_code.lower()}.flightbooker.com"
+        password = f"{airline_code}Staff@123"
+        
+        existing = db.query(User).filter(User.email == email).first()
+        if existing:
+            continue
+        
+        staff = User(
+            email=email,
+            password_hash=hash_password(password),
+            first_name=f"{airline.name}",
+            last_name="Staff",
+            mobile=f"+91900000{100 + created_count:04d}",
+            country="India",
+            role="airline_staff",
+            airline_id=airline.id,
+            is_active=True,
+            is_verified=True,
+        )
+        db.add(staff)
+        created_count += 1
+        print(f"  ✓ Created staff for {airline.name}: {email} / {password}")
+    
+    db.commit()
+    print(f"  ✓ {created_count} airline staff users created")
+    return created_count
+
+
+def create_airport_authority_users(db, airports: dict):
+    """Create authority users for each airport."""
+    from app.models.user import User
+    from app.auth.password import hash_password
+    
+    print("\n📌 Creating Airport Authority Users...")
+    created_count = 0
+    
+    for airport_code, airport in airports.items():
+        # Create one authority user per airport
+        email = f"authority@{airport_code.lower()}.airport.in"
+        password = f"{airport_code}Auth@123"
+        
+        existing = db.query(User).filter(User.email == email).first()
+        if existing:
+            continue
+        
+        authority = User(
+            email=email,
+            password_hash=hash_password(password),
+            first_name=f"{airport.city}",
+            last_name="Airport Authority",
+            mobile=f"+91800000{100 + created_count:04d}",
+            country="India",
+            role="airport_authority",
+            airport_id=airport.id,
+            is_active=True,
+            is_verified=True,
+        )
+        db.add(authority)
+        created_count += 1
+        print(f"  ✓ Created authority for {airport.code}: {email} / {password}")
+    
+    db.commit()
+    print(f"  ✓ {created_count} airport authority users created")
+    return created_count
 
 
 if __name__ == "__main__":

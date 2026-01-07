@@ -26,7 +26,22 @@ class Flight(Base):
     # Demand level: affects dynamic pricing. Values: low, medium, high, extreme
     demand_level = Column(String(20), nullable=False, default="medium")
 
-    status = Column(Enum("Scheduled", "Delayed", "Cancelled", "Departed", name="flight_status"), default="Scheduled")
+    # Flight status: Scheduled, Boarding, Delayed, Departed, Landed, Cancelled
+    status = Column(
+        Enum("Scheduled", "Boarding", "Delayed", "Departed", "Landed", "Cancelled", name="flight_status"),
+        default="Scheduled"
+    )
+    
+    # Gate assignments (managed by airport authority)
+    departure_gate = Column(String(10), nullable=True)
+    arrival_gate = Column(String(10), nullable=True)
+    
+    # Delay information (in minutes)
+    delay_minutes = Column(Integer, default=0)
+    delay_reason = Column(String(200), nullable=True)
+    
+    # Remarks for FIDS display
+    remarks = Column(String(200), nullable=True)
 
     airline = relationship("Airline", back_populates="flights")
     aircraft = relationship("Aircraft", back_populates="flights")

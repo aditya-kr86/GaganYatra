@@ -106,6 +106,36 @@ Flight prices are influenced by the following multipliers:
 - Auto-generated PDF tickets
 - Email notifications for booking confirmation & cancellation
 
+### 4. Airline Staff Dashboard
+- Fleet management and aircraft monitoring
+- Flight scheduling and route management
+- Real-time booking analytics and revenue tracking
+- Passenger manifest and seat inventory control
+- Dynamic pricing configuration
+
+### 5. Airport Authority Dashboard (FIDS)
+- **Flight Information Display System (FIDS)** with real-time updates
+- Departures and arrivals tracking with live status
+- Gate assignment management
+- Delay and cancellation monitoring
+- Auto-refresh every 30 seconds
+- Professional airport-style UI with live clock
+
+---
+
+## Demo Credentials
+
+Use the following credentials to access different dashboards:
+
+| Role | Email | Password | Dashboard Access |
+|------|-------|----------|------------------|
+| **Passenger** | *(Register new account)* | *(Your choice)* | Flight search, booking, my bookings |
+| **Admin** | `admin@flightbooker.com` | `Admin@123` | Full system administration |
+| **Airline Staff** | `staff@6e.flightbooker.com` | `6EStaff@123` | Airline operations dashboard |
+| **Airport Authority** | `authority@bom.airport.in` | `BOMAuth@123` | Airport FIDS & gate management |
+
+> **Note:** These are demo credentials for testing purposes only.
+
 ---
 
 ## Installation & Local Setup

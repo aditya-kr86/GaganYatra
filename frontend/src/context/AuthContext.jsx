@@ -140,6 +140,15 @@ export const AuthProvider = ({ children }) => {
   // Check if user is admin
   const isAdmin = () => hasRole('admin');
 
+  // Check if user is airline staff
+  const isAirlineStaff = () => hasRole('airline_staff');
+
+  // Check if user is airport authority
+  const isAirportAuthority = () => hasRole('airport_authority');
+
+  // Check if user is any type of staff
+  const isStaff = () => hasRole(['admin', 'airline_staff', 'airport_authority']);
+
   // Check if user is authenticated
   const isAuthenticated = () => !!user && !!token;
 
@@ -156,6 +165,9 @@ export const AuthProvider = ({ children }) => {
     changePassword,
     hasRole,
     isAdmin,
+    isAirlineStaff,
+    isAirportAuthority,
+    isStaff,
     isAuthenticated,
   };
 

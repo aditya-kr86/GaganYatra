@@ -37,11 +37,11 @@
   width: 100px;
   height: 100px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: #000;
   flex-shrink: 0;
 }
 
@@ -59,8 +59,8 @@
 .profile-role {
   display: inline-block;
   padding: 0.25rem 0.75rem;
-  background: rgba(249, 115, 22, 0.2);
-  color: #f97316;
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
   border-radius: 20px;
   font-size: 0.8rem;
   text-transform: capitalize;
@@ -141,9 +141,11 @@
 
 .profile-section .input-icon {
   position: absolute;
-  left: 1rem;
+  left: 0.875rem;
   color: #6b7280;
   pointer-events: none;
+  width: 18px;
+  height: 18px;
 }
 
 .profile-section input {
@@ -159,8 +161,9 @@
 
 .profile-section input:focus {
   outline: none;
-  border-color: #f97316;
-  background: rgba(249, 115, 22, 0.05);
+  border-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.05);
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.1);
 }
 
 .profile-section input.disabled {
@@ -179,10 +182,10 @@
   justify-content: center;
   gap: 0.5rem;
   padding: 1rem 2rem;
-  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
   border: none;
   border-radius: 12px;
-  color: white;
+  color: #000;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -193,7 +196,7 @@
 
 .save-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 10px 30px rgba(249, 115, 22, 0.3);
+  box-shadow: 0 10px 30px rgba(251, 191, 36, 0.35);
 }
 
 .save-btn:disabled {
@@ -203,11 +206,12 @@
 
 .save-btn.secondary {
   background: transparent;
-  border: 2px solid #f97316;
+  border: 2px solid #fbbf24;
+  color: #fbbf24;
 }
 
 .save-btn.secondary:hover:not(:disabled) {
-  background: rgba(249, 115, 22, 0.1);
+  background: rgba(251, 191, 36, 0.1);
 }
 
 .spinner {

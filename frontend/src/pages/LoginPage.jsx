@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Plane, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { Plane, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
 import './AuthPages.css';
 
 const LoginPage = () => {
@@ -85,6 +85,10 @@ const LoginPage = () => {
 
         <div className="auth-right">
           <div className="auth-form-container">
+            <Link to="/" className="auth-back-btn">
+              <ArrowLeft size={18} />
+              Back to Home
+            </Link>
             <h2>Sign In</h2>
             <p className="auth-subtitle">Enter your credentials to access your account</p>
 
@@ -99,7 +103,6 @@ const LoginPage = () => {
               <div className="form-group">
                 <label htmlFor="email">Email Address</label>
                 <div className="input-wrapper">
-                  <Mail className="input-icon" size={18} />
                   <input
                     type="email"
                     id="email"
@@ -115,7 +118,6 @@ const LoginPage = () => {
               <div className="form-group">
                 <label htmlFor="password">Password</label>
                 <div className="input-wrapper">
-                  <Lock className="input-icon" size={18} />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     id="password"

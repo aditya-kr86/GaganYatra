@@ -169,7 +169,6 @@ const ProfilePage = () => {
                   <div className="form-group">
                     <label htmlFor="first_name">First Name</label>
                     <div className="input-wrapper">
-                      <User className="input-icon" size={18} />
                       <input
                         type="text"
                         id="first_name"
@@ -184,7 +183,6 @@ const ProfilePage = () => {
                   <div className="form-group">
                     <label htmlFor="last_name">Last Name</label>
                     <div className="input-wrapper">
-                      <User className="input-icon" size={18} />
                       <input
                         type="text"
                         id="last_name"
@@ -200,7 +198,6 @@ const ProfilePage = () => {
                 <div className="form-group">
                   <label htmlFor="email">Email Address</label>
                   <div className="input-wrapper">
-                    <Mail className="input-icon" size={18} />
                     <input
                       type="email"
                       id="email"
@@ -217,7 +214,6 @@ const ProfilePage = () => {
                   <div className="form-group">
                     <label htmlFor="mobile">Mobile Number</label>
                     <div className="input-wrapper">
-                      <Phone className="input-icon" size={18} />
                       <input
                         type="tel"
                         id="mobile"
@@ -231,7 +227,6 @@ const ProfilePage = () => {
                   <div className="form-group">
                     <label htmlFor="country">Country</label>
                     <div className="input-wrapper">
-                      <Globe className="input-icon" size={18} />
                       <input
                         type="text"
                         id="country"
@@ -285,13 +280,13 @@ const ProfilePage = () => {
                 <div className="form-group">
                   <label htmlFor="current_password">Current Password</label>
                   <div className="input-wrapper">
-                    <Lock className="input-icon" size={18} />
                     <input
                       type="password"
                       id="current_password"
                       name="current_password"
                       value={passwordData.current_password}
                       onChange={handlePasswordChange}
+                      placeholder="Enter your current password"
                       required
                     />
                   </div>
@@ -300,13 +295,13 @@ const ProfilePage = () => {
                 <div className="form-group">
                   <label htmlFor="new_password">New Password</label>
                   <div className="input-wrapper">
-                    <Lock className="input-icon" size={18} />
                     <input
                       type="password"
                       id="new_password"
                       name="new_password"
                       value={passwordData.new_password}
                       onChange={handlePasswordChange}
+                      placeholder="Enter your new password"
                       required
                       minLength={8}
                     />
@@ -316,13 +311,13 @@ const ProfilePage = () => {
                 <div className="form-group">
                   <label htmlFor="confirm_password">Confirm New Password</label>
                   <div className="input-wrapper">
-                    <Lock className="input-icon" size={18} />
                     <input
                       type="password"
                       id="confirm_password"
                       name="confirm_password"
                       value={passwordData.confirm_password}
                       onChange={handlePasswordChange}
+                      placeholder="Confirm your new password"
                       required
                     />
                   </div>

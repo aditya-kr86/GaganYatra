@@ -290,6 +290,11 @@ const RegisterPage = () => {
 
         <div className="auth-right">
           <div className="auth-form-container">
+            <Link to="/" className="auth-back-btn">
+              <ArrowLeft size={18} />
+              Back to Home
+            </Link>
+            
             {/* Step 1: Email */}
             {step === STEPS.EMAIL && (
               <>

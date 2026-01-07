@@ -2,3 +2,4 @@ init.txt
 backend\database.db
 mail_credentials.txt
 backend/database.db
+temp.py

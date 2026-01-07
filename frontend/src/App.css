@@ -996,6 +996,10 @@ button {
   transform: none;
 }
 
+.search-btn .spinner {
+  animation: spin 1s linear infinite;
+}
+
 @media (max-width: 768px) {
   .form-row {
     flex-direction: column;

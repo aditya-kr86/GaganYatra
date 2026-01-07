@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Calendar, Users, Search, ArrowRightLeft } from 'lucide-react';
+import { MapPin, Calendar, Users, Search, ArrowRightLeft, Loader2 } from 'lucide-react';
 import { airportAPI } from '../../api/flights';
 
 const FlightSearchForm = () => {
@@ -196,8 +196,17 @@ const FlightSearchForm = () => {
           className="search-btn"
           disabled={loading}
         >
-          <Search size={20} />
-          {loading ? 'Searching...' : 'Search Flights'}
+          {loading ? (
+            <>
+              <Loader2 className="spinner" size={20} />
+              Searching...
+            </>
+          ) : (
+            <>
+              <Search size={20} />
+              Search Flights
+            </>
+          )}
         </button>
       </form>
     </div>

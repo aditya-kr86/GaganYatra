@@ -227,8 +227,17 @@ const FlightsPage = () => {
                 </div>
                 
                 <button type="submit" className="search-btn" disabled={loading}>
-                  {loading ? <Loader2 className="spinner" size={20} /> : <Search size={20} />}
-                  Search
+                  {loading ? (
+                    <>
+                      <Loader2 className="spinner" size={20} />
+                      Searching...
+                    </>
+                  ) : (
+                    <>
+                      <Search size={20} />
+                      Search
+                    </>
+                  )}
                 </button>
               </div>
             </form>

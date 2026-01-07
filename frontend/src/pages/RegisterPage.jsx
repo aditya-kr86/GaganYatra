@@ -312,7 +312,6 @@ const RegisterPage = () => {
                   <div className="form-group">
                     <label htmlFor="email">Email Address</label>
                     <div className="input-wrapper">
-                      <Mail className="input-icon" size={18} />
                       <input
                         type="email"
                         id="email"

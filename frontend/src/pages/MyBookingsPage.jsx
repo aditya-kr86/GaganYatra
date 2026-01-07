@@ -243,11 +243,16 @@ const MyBookingsPage = () => {
                           disabled={downloadingId === booking.pnr}
                         >
                           {downloadingId === booking.pnr ? (
-                            <Loader2 className="spinner" size={16} />
+                            <>
+                              <Loader2 className="spinner" size={16} />
+                              Downloading...
+                            </>
                           ) : (
-                            <Download size={16} />
+                            <>
+                              <Download size={16} />
+                              Download Ticket
+                            </>
                           )}
-                          Download Ticket
                         </button>
                         <button 
                           className="action-btn cancel"
@@ -255,11 +260,16 @@ const MyBookingsPage = () => {
                           disabled={cancellingId === booking.pnr}
                         >
                           {cancellingId === booking.pnr ? (
-                            <Loader2 className="spinner" size={16} />
+                            <>
+                              <Loader2 className="spinner" size={16} />
+                              Cancelling...
+                            </>
                           ) : (
-                            <X size={16} />
+                            <>
+                              <X size={16} />
+                              Cancel
+                            </>
                           )}
-                          Cancel
                         </button>
                       </>
                     )}
@@ -270,11 +280,16 @@ const MyBookingsPage = () => {
                         disabled={cancellingId === booking.pnr}
                       >
                         {cancellingId === booking.pnr ? (
-                          <Loader2 className="spinner" size={16} />
+                          <>
+                            <Loader2 className="spinner" size={16} />
+                            Cancelling...
+                          </>
                         ) : (
-                          <X size={16} />
+                          <>
+                            <X size={16} />
+                            Cancel
+                          </>
                         )}
-                        Cancel
                       </button>
                     )}
                     <Link to={`/booking/confirmation/${booking.pnr}`} className="action-btn view">

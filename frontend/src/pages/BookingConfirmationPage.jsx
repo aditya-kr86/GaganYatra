@@ -328,11 +328,16 @@ const BookingConfirmationPage = () => {
                 disabled={downloading}
               >
                 {downloading ? (
-                  <Loader2 className="spinner" size={18} />
+                  <>
+                    <Loader2 className="spinner" size={18} />
+                    Downloading...
+                  </>
                 ) : (
-                  <Download size={18} />
+                  <>
+                    <Download size={18} />
+                    Download Ticket
+                  </>
                 )}
-                Download Ticket
               </button>
               <button className="action-btn" onClick={handlePrint}>
                 <Printer size={18} />
@@ -527,8 +532,12 @@ const BookingConfirmationPage = () => {
               onClick={handleDownloadPDF}
               disabled={downloading}
             >
-              <Download size={24} />
-              <span>Download</span>
+              {downloading ? (
+                <Loader2 className="spinner" size={24} />
+              ) : (
+                <Download size={24} />
+              )}
+              <span>{downloading ? 'Downloading...' : 'Download'}</span>
             </button>
           </div>
 

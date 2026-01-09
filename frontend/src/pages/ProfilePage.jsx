@@ -245,7 +245,6 @@ const ProfilePage = () => {
                 >
                   {profileLoading ? (
                     <>
-                      <Loader2 className="spinner" size={18} />
                       Saving...
                     </>
                   ) : (
@@ -330,7 +329,6 @@ const ProfilePage = () => {
                 >
                   {passwordLoading ? (
                     <>
-                      <Loader2 className="spinner" size={18} />
                       Updating...
                     </>
                   ) : (

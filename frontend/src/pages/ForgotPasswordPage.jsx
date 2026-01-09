@@ -276,7 +276,6 @@ const ForgotPasswordPage = () => {
                   <div className="form-group">
                     <label htmlFor="email">Email Address</label>
                     <div className="input-wrapper">
-                      <Mail className="input-icon" size={18} />
                       <input
                         type="email"
                         id="email"
@@ -296,7 +295,6 @@ const ForgotPasswordPage = () => {
                   >
                     {loading ? (
                       <>
-                        <Loader2 className="spinner" size={18} />
                         Sending OTP...
                       </>
                     ) : (
@@ -367,7 +365,6 @@ const ForgotPasswordPage = () => {
                   >
                     {loading ? (
                       <>
-                        <Loader2 className="spinner" size={18} />
                         Verifying...
                       </>
                     ) : (
@@ -431,7 +428,6 @@ const ForgotPasswordPage = () => {
                   <div className="form-group">
                     <label htmlFor="newPassword">New Password</label>
                     <div className="input-wrapper">
-                      <Lock className="input-icon" size={18} />
                       <input
                         type={showPassword ? 'text' : 'password'}
                         id="newPassword"
@@ -457,7 +453,6 @@ const ForgotPasswordPage = () => {
                   <div className="form-group">
                     <label htmlFor="confirmPassword">Confirm New Password</label>
                     <div className="input-wrapper">
-                      <Lock className="input-icon" size={18} />
                       <input
                         type={showConfirmPassword ? 'text' : 'password'}
                         id="confirmPassword"
@@ -483,7 +478,6 @@ const ForgotPasswordPage = () => {
                   >
                     {loading ? (
                       <>
-                        <Loader2 className="spinner" size={18} />
                         Resetting Password...
                       </>
                     ) : (

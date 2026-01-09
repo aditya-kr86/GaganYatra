@@ -332,7 +332,6 @@ const RegisterPage = () => {
                   >
                     {loading ? (
                       <>
-                        <Loader2 className="spinner" size={18} />
                         Sending OTP...
                       </>
                     ) : (
@@ -389,7 +388,6 @@ const RegisterPage = () => {
                   >
                     {loading ? (
                       <>
-                        <Loader2 className="spinner" size={18} />
                         Verifying...
                       </>
                     ) : (
@@ -574,7 +572,6 @@ const RegisterPage = () => {
                   >
                     {loading ? (
                       <>
-                        <Loader2 className="spinner" size={18} />
                         Creating account...
                       </>
                     ) : (

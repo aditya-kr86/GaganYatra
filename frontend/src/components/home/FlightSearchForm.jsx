@@ -198,7 +198,6 @@ const FlightSearchForm = () => {
         >
           {loading ? (
             <>
-              <Loader2 className="spinner" size={20} />
               Searching...
             </>
           ) : (

@@ -329,7 +329,6 @@ const BookingConfirmationPage = () => {
               >
                 {downloading ? (
                   <>
-                    <Loader2 className="spinner" size={18} />
                     Downloading...
                   </>
                 ) : (

@@ -801,7 +801,6 @@ const BookingPage = () => {
                   >
                     {submitting ? (
                       <>
-                        <Loader2 className="spinner" size={18} />
                         Processing...
                       </>
                     ) : (

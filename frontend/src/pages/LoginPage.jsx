@@ -154,7 +154,6 @@ const LoginPage = () => {
               >
                 {loading ? (
                   <>
-                    <Loader2 className="spinner" size={18} />
                     Signing in...
                   </>
                 ) : (

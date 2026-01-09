@@ -208,7 +208,6 @@ const ContactPage = () => {
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="spinner" size={18} />
                       Sending...
                     </>
                   ) : (

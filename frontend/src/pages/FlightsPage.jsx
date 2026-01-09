@@ -291,6 +291,15 @@ const FlightsPage = () => {
                     const selectedPrice = getFlightPrice(flight, selectedTier);
                     const totalForAll = selectedPrice * passengers;
                     
+                    // Check seats available for selected class
+                    const seatsForSelectedClass = flight.seats_by_class?.[selectedTier] ?? 0;
+                    const isBookingDisabled = seatsForSelectedClass < passengers;
+                    
+                    // Check if any class has seats available
+                    const hasAnySeatsAvailable = SEAT_CLASSES.some(
+                      cls => (flight.seats_by_class?.[cls.value] ?? 0) > 0
+                    );
+                    
                     return (
                       <div key={flight.id} className="flight-card">
                         <div className="flight-main-info">
@@ -367,9 +376,15 @@ const FlightsPage = () => {
                           <button 
                             className="book-btn"
                             onClick={() => navigate(`/booking/new?flight=${flight.id}&passengers=${passengers}&tier=${selectedTier}&price=${selectedPrice}`)}
+                            disabled={isBookingDisabled}
+                            title={isBookingDisabled ? `Not enough seats available (${seatsForSelectedClass} left, need ${passengers})` : ''}
                           >
-                            Book {SEAT_CLASSES.find(c => c.value === selectedTier)?.label}
-                            <ArrowRight size={16} />
+                            {isBookingDisabled ? (
+                              seatsForSelectedClass === 0 ? 'Sold Out' : `Only ${seatsForSelectedClass} left`
+                            ) : (
+                              <>Book {SEAT_CLASSES.find(c => c.value === selectedTier)?.label}</>
+                            )}
+                            {!isBookingDisabled && <ArrowRight size={16} />}
                           </button>
                         </div>
                       </div>

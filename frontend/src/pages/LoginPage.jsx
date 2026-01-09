@@ -17,8 +17,11 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Get redirect path from location state or default to home
-  const from = location.state?.from?.pathname || '/';
+  // Get redirect path from location state - preserve both pathname and search params
+  const fromLocation = location.state?.from;
+  const redirectPath = fromLocation 
+    ? `${fromLocation.pathname}${fromLocation.search || ''}` 
+    : '/';
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -43,7 +46,7 @@ const LoginPage = () => {
         } else if (result.user.role === 'airport_authority') {
           navigate('/airport/dashboard');
         } else {
-          navigate(from, { replace: true });
+          navigate(redirectPath, { replace: true });
         }
       } else {
         setError(result.error);

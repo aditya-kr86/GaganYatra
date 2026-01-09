@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy import (
-    Column, Integer, String, DateTime, ForeignKey, Float, Enum
+    Column, Integer, String, DateTime, ForeignKey, Float, Enum, Index
 )
 from sqlalchemy.orm import relationship
 from app.config import Base
@@ -8,12 +8,21 @@ from app.config import Base
 
 class Flight(Base):
     __tablename__ = "flights"
+    
+    # Database indexes for faster queries
+    __table_args__ = (
+        Index('ix_flights_departure_airport_id', 'departure_airport_id'),
+        Index('ix_flights_arrival_airport_id', 'arrival_airport_id'),
+        Index('ix_flights_departure_time', 'departure_time'),
+        Index('ix_flights_route_date', 'departure_airport_id', 'arrival_airport_id', 'departure_time'),
+        Index('ix_flights_base_price', 'base_price'),
+    )
 
     id = Column(Integer, primary_key=True)
-    airline_id = Column(Integer, ForeignKey("airlines.id"))
-    aircraft_id = Column(Integer, ForeignKey("aircrafts.id"))
+    airline_id = Column(Integer, ForeignKey("airlines.id"), index=True)
+    aircraft_id = Column(Integer, ForeignKey("aircrafts.id"), index=True)
 
-    flight_number = Column(String(10), nullable=False)
+    flight_number = Column(String(10), nullable=False, index=True)
 
     departure_airport_id = Column(Integer, ForeignKey("airports.id"))
     arrival_airport_id = Column(Integer, ForeignKey("airports.id"))

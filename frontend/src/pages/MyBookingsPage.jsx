@@ -198,6 +198,10 @@ const MyBookingsPage = () => {
                           <span className="flight-num">{firstTicket?.flight_number}</span>
                         </div>
                         <div className="detail">
+                          <Ticket size={16} />
+                          <span>{firstTicket?.flight_seat || firstTicket?.seat_number || 'Seat TBA'}</span>
+                        </div>
+                        <div className="detail">
                           <Calendar size={16} />
                           <span>
                             {firstTicket?.departure_time 

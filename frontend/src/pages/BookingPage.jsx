@@ -364,6 +364,17 @@ const BookingPage = () => {
       
       <main className="booking-main">
         <div className="booking-container">
+          {/* Back to Search Button - Only visible on Step 1 */}
+          {currentStep === 1 && (
+            <button 
+              className="back-to-search-btn"
+              onClick={() => navigate('/flights')}
+            >
+              <ArrowLeft size={18} />
+              Back to Flight Search
+            </button>
+          )}
+
           {/* Progress Steps */}
           <div className="booking-steps">
             {STEPS.map((step, index) => (

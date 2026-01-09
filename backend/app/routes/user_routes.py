@@ -15,6 +15,23 @@ from app.schemas.user_schema import (
 from app.auth.password import hash_password
 from app.auth.dependencies import get_current_user, require_admin
 
+
+def _format_flight_seat(seat_class: str, seat_number: str) -> str:
+    """Format flight seat as 'SEAT_CLASS - SEAT_NUMBER' (e.g., 'EC - 32')."""
+    seat_class_abbr = {
+        "ECONOMY": "EC",
+        "ECONOMY_FLEX": "ECF",
+        "BUSINESS": "BUS",
+        "FIRST": "FC",
+        "Economy": "EC",
+        "Premium Economy": "ECF",
+        "Business": "BUS",
+        "First": "FC",
+    }.get(seat_class, seat_class[:2].upper() if seat_class else "EC")
+    
+    return f"{seat_class_abbr} - {seat_number}"
+
+
 router = APIRouter()
 
 
@@ -100,7 +117,7 @@ def get_my_bookings(
         tickets_simplified = []
         for t in booking.tickets:
             tickets_simplified.append(TicketInfoSimplified(
-                flight_seat=f"{t.seat_class[:2].upper() if t.seat_class else 'EC'} - {t.seat_number or 'TBA'}",
+                flight_seat=_format_flight_seat(t.seat_class or "Economy", t.seat_number or "TBA"),
                 passenger_name=t.passenger_name,
                 passenger_age=t.passenger_age,
                 passenger_gender=t.passenger_gender,
@@ -114,7 +131,7 @@ def get_my_bookings(
                 departure_time=t.departure_time,
                 arrival_time=t.arrival_time,
                 seat_number=t.seat_number or "",
-                seat_class=t.seat_class or "ECONOMY",
+                seat_class=t.seat_class or "Economy",
                 payment_required=t.payment_required,
                 currency=t.currency,
                 ticket_number=t.ticket_number,

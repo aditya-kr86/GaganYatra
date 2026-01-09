@@ -109,7 +109,7 @@ def get_seat_map(
         seat_letters=seat_letters
     )
     
-    # Group seats by row
+    # Group seats by row with dynamically calculated surcharges
     rows_dict = {}
     for seat in seats:
         row_num = seat.row_number or int(''.join(filter(str.isdigit, seat.seat_number)) or '1')
@@ -117,6 +117,11 @@ def get_seat_map(
         
         if row_num not in rows_dict:
             rows_dict[row_num] = []
+        
+        # Calculate surcharge dynamically based on seat position and current base_price
+        position = seat.seat_position or "middle"
+        surcharge_rate = SEAT_POSITION_SURCHARGE.get(position, 0.0)
+        calculated_surcharge = round(base_price * surcharge_rate, 2)
         
         rows_dict[row_num].append(SeatMapSeat(
             id=seat.id,
@@ -126,7 +131,7 @@ def get_seat_map(
             seat_class=seat.seat_class or "Economy",
             seat_position=seat.seat_position or "middle",
             is_available=seat.is_available,
-            surcharge=seat.surcharge or 0.0
+            surcharge=calculated_surcharge
         ))
     
     # Convert to sorted list of rows

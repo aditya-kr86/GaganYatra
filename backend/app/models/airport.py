@@ -7,9 +7,9 @@ class Airport(Base):
     __tablename__ = "airports"
 
     id = Column(Integer, primary_key=True)
-    code = Column(String(10), unique=True, nullable=False)
+    code = Column(String(10), unique=True, nullable=False, index=True)  # Index for fast code lookups
     name = Column(String(200), nullable=False)
-    city = Column(String(100))
+    city = Column(String(100), index=True)  # Index for city searches
     country = Column(String(100))
 
     departures = relationship("Flight", back_populates="departure_airport", foreign_keys='Flight.departure_airport_id')

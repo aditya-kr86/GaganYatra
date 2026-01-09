@@ -90,13 +90,19 @@ def check_pnr_status(pnr: str, db: Session = Depends(get_db)):
 
 def _format_flight_seat(seat_class: str, seat_number: str) -> str:
     """Format flight seat as 'SEAT_CLASS - SEAT_NUMBER' (e.g., 'EC - 32')."""
-    # Abbreviate seat class
+    # Abbreviate seat class - handle both API tier names and DB names
     seat_class_abbr = {
+        # API tier names (uppercase)
         "ECONOMY": "EC",
         "ECONOMY_FLEX": "ECF",
         "BUSINESS": "BUS",
         "FIRST": "FC",
-    }.get(seat_class.upper(), seat_class[:2].upper())
+        # Database names (title case)
+        "Economy": "EC",
+        "Premium Economy": "ECF",
+        "Business": "BUS",
+        "First": "FC",
+    }.get(seat_class, seat_class[:2].upper() if seat_class else "EC")
     
     return f"{seat_class_abbr} - {seat_number}"
 

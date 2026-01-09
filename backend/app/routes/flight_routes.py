@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from datetime import datetime
-from sqlalchemy import func
+from sqlalchemy import func, case
 from app.models.airport import Airport
 from app.models.airline import Airline
 from app.models.seat import Seat
@@ -14,31 +14,38 @@ from app.services.pricing_engine import compute_dynamic_price
 from app.schemas.flight_schema import FlightCreate, FlightResponse
 from fastapi import Body, Path
 from app.models.flight import Flight
-from app.config import get_db
-from sqlalchemy.orm import Session
 from app.services.flight_service import get_booking_by_pnr
 from app.services.flight_service import cancel_booking
 from app.schemas.flight_schema import FlightUpdate
-from app.models.airline import Airline
-from app.models.airport import Airport
 
 router = APIRouter()
 
 
 @router.get("/stats")
 def get_flight_stats(db: Session = Depends(get_db)):
-    """Get flight statistics for admin dashboard - fast count queries."""
-    from sqlalchemy import func
-    from datetime import datetime, timezone
+    """Get flight statistics for admin dashboard - optimized single query."""
+    from datetime import timezone
     
     now = datetime.now(timezone.utc)
     if now.tzinfo is not None:
         now = now.replace(tzinfo=None)
     
-    total_flights = db.query(func.count(Flight.id)).scalar() or 0
-    upcoming_flights = db.query(func.count(Flight.id)).filter(Flight.departure_time >= now).scalar() or 0
-    total_seats = db.query(func.count(Seat.id)).scalar() or 0
-    available_seats = db.query(func.count(Seat.id)).filter(Seat.is_available == True).scalar() or 0
+    # Combined query for flight stats
+    stats = db.query(
+        func.count(Flight.id).label('total'),
+        func.sum(case((Flight.departure_time >= now, 1), else_=0)).label('upcoming')
+    ).first()
+    
+    # Combined query for seat stats
+    seat_stats = db.query(
+        func.count(Seat.id).label('total'),
+        func.sum(case((Seat.is_available == True, 1), else_=0)).label('available')
+    ).first()
+    
+    total_flights = stats.total or 0
+    upcoming_flights = stats.upcoming or 0
+    total_seats = seat_stats.total or 0
+    available_seats = seat_stats.available or 0
     
     return {
         "total_flights": total_flights,
@@ -51,10 +58,10 @@ def get_flight_stats(db: Session = Depends(get_db)):
 
 @router.get("/", response_model=list[FlightResponse])
 def list_flights_api(
-    limit: int | None = Query(100, ge=1, le=200),  # Default to 100 for performance
+    limit: int | None = Query(50, ge=1, le=100),  # Reduced default for performance
     db: Session = Depends(get_db)
 ):
-    """Return all flights (optionally limited). Default limit is 100 for performance."""
+    """Return all flights (optionally limited). Default limit is 50 for performance."""
     flights = search_flights(db, limit=limit)
     return flights
 
@@ -65,11 +72,11 @@ def search_flights_api(
     destination: str | None = Query(None, min_length=3, max_length=10),
     date: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     sort_by: str | None = Query(None, pattern="^(price|duration)$"),
-    limit: int | None = Query(50, ge=1, le=200),
-    days_flex: int | None = Query(0, ge=0, le=30),
-    tier: str | None = Query("ECONOMY", pattern="^(ECONOMY|ECONOMY_FLEX|BUSINESS|FIRST|all|ALL)$"),
+    limit: int | None = Query(30, ge=1, le=100),  # Reduced for performance
+    days_flex: int | None = Query(0, ge=0, le=7),  # Reduced max flex
+    tier: str | None = Query("ECONOMY", pattern="^(ECONOMY|BUSINESS|FIRST|all|ALL)$"),
     page: int | None = Query(None, ge=1),
-    page_size: int | None = Query(None, ge=1, le=200),
+    page_size: int | None = Query(None, ge=1, le=50),  # Reduced max page size
     db: Session = Depends(get_db)
 ):
     # Normalize codes
@@ -85,10 +92,14 @@ def search_flights_api(
         except ValueError:
             raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
 
-    # If page/page_size provided, pass pagination options
-    flights = search_flights(db, origin=origin, destination=destination, date=date, sort_by=sort_by, limit=limit, days_flex=days_flex or 0, tier=(tier or "ECONOMY"), store_history=True, page=page, page_size=page_size)
+    # FIXED: store_history=False to prevent DB writes on every search
+    flights = search_flights(
+        db, origin=origin, destination=destination, date=date, 
+        sort_by=sort_by, limit=limit, days_flex=days_flex or 0, 
+        tier=(tier or "ECONOMY"), store_history=False, 
+        page=page, page_size=page_size
+    )
 
-    # Return empty list when no flights found (consistent with list endpoint)
     return flights or []
 
 
@@ -163,17 +174,38 @@ def create_flight_api(payload: FlightCreate, db: Session = Depends(get_db)):
 
 @router.get("/{flight_id}", response_model=FlightResponse)
 def get_flight(flight_id: int = Path(..., ge=1), db: Session = Depends(get_db)):
-    f = db.query(Flight).filter(Flight.id == flight_id).first()
+    """Get single flight by ID - optimized with eager loading."""
+    f = (
+        db.query(Flight)
+        .options(
+            joinedload(Flight.airline),
+            joinedload(Flight.aircraft),
+            joinedload(Flight.departure_airport),
+            joinedload(Flight.arrival_airport),
+        )
+        .filter(Flight.id == flight_id)
+        .first()
+    )
     if not f:
         raise HTTPException(status_code=404, detail="flight not found")
-    dep = db.query(Airport).filter(Airport.id == f.departure_airport_id).first()
-    arr = db.query(Airport).filter(Airport.id == f.arrival_airport_id).first()
-    airline = db.query(Airline).filter(Airline.id == f.airline_id).first()
-    seats_left = db.query(func.count(Seat.id)).filter(Seat.flight_id == f.id, Seat.is_available == True).scalar() or 0
-    aircraft = db.query(Aircraft).filter(Aircraft.id == f.aircraft_id).first()
-    total_seats = db.query(func.count(Seat.id)).filter(Seat.flight_id == f.id).scalar() or 0
+    
+    # Use eager-loaded relationships
+    dep = f.departure_airport
+    arr = f.arrival_airport
+    airline = f.airline
+    aircraft = f.aircraft
+    
+    # Single query for seat stats
+    seat_stats = db.query(
+        func.count(Seat.id).label('total'),
+        func.sum(case((Seat.is_available == True, 1), else_=0)).label('available')
+    ).filter(Seat.flight_id == f.id).first()
+    
+    total_seats = seat_stats.total or 0
+    seats_left = seat_stats.available or 0
     booked_seats = max(total_seats - seats_left, 0)
     demand_level = getattr(f, 'demand_level', 'medium') or 'medium'
+    
     try:
         current_price = compute_dynamic_price(f.base_price, f.departure_time, total_seats, booked_seats, demand_level, tier="ECONOMY")
     except Exception:

@@ -35,24 +35,27 @@ def ensure_database_exists(database_url: str) -> None:
 # MySQL DB creation check (won’t run in Postgres mode)
 ensure_database_exists(DATABASE_URL)
 
-# SQLAlchemy Engine with optimized pool settings
+# SQLAlchemy Engine with OPTIMIZED pool settings for cloud DBs (Supabase)
 engine_kwargs = {}
 
 if DATABASE_URL.startswith("sqlite"):
     engine_kwargs["connect_args"] = {"check_same_thread": False}
 else:
     # Connection pool optimization for PostgreSQL/MySQL
+    # CRITICAL: These settings prevent connection exhaustion and freezing
     engine_kwargs.update({
-        "pool_size": 10,           # Number of connections to keep open
-        "max_overflow": 20,        # Extra connections when pool is exhausted
-        "pool_pre_ping": True,     # Verify connections before use
-        "pool_recycle": 3600,      # Recycle connections after 1 hour
+        "pool_size": 5,            # Reduced for cloud DB limits
+        "max_overflow": 10,        # Extra connections when pool is exhausted
+        "pool_pre_ping": True,     # Verify connections before use (handles stale connections)
+        "pool_recycle": 300,       # Recycle connections every 5 min (Supabase timeout)
+        "pool_timeout": 30,        # Wait max 30s for connection
+        "echo": False,             # Disable SQL logging for performance
     })
 
 engine = create_engine(DATABASE_URL, **engine_kwargs)
 
-# Session setup
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Session setup with expire_on_commit=False for better performance
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
 Base = declarative_base()
 
 # DB dependency generator

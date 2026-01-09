@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Enum, Boolean, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Enum, Boolean, ForeignKey, Float, Index
 from sqlalchemy.orm import relationship
 from app.config import Base
 
@@ -13,15 +13,22 @@ SEAT_POSITION_SURCHARGE = {
 
 class Seat(Base):
     __tablename__ = "seats"
+    
+    # Database indexes for faster seat queries
+    __table_args__ = (
+        Index('ix_seats_flight_available', 'flight_id', 'is_available'),
+        Index('ix_seats_flight_class', 'flight_id', 'seat_class'),
+        Index('ix_seats_flight_class_available', 'flight_id', 'seat_class', 'is_available'),
+    )
 
     id = Column(Integer, primary_key=True)
-    flight_id = Column(Integer, ForeignKey("flights.id"))
-    booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=True)
+    flight_id = Column(Integer, ForeignKey("flights.id"), index=True)
+    booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=True, index=True)
 
     seat_number = Column(String(5))  # e.g., "12A", "5F"
     row_number = Column(Integer, nullable=True)  # Row number (1, 2, 3...)
     seat_letter = Column(String(1), nullable=True)  # Seat letter (A, B, C...)
-    seat_class = Column(Enum("Economy", "Premium Economy", "Business", "First", name="seat_class"))
+    seat_class = Column(Enum("Economy", "Business", "First", name="seat_class"))
     seat_position = Column(Enum("window", "middle", "aisle", name="seat_position"), default="middle")
     is_available = Column(Boolean, default=True)
     surcharge = Column(Float, default=0.0)  # Absolute surcharge amount (computed on creation)

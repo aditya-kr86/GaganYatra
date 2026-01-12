@@ -43,13 +43,21 @@ if DATABASE_URL.startswith("sqlite"):
 else:
     # Connection pool optimization for PostgreSQL/MySQL
     # CRITICAL: These settings prevent connection exhaustion and freezing
+    connect_args = {}
+    
+    # PostgreSQL-specific connection timeout
+    if DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgres"):
+        connect_args["connect_timeout"] = 10  # 10 second connection timeout
+        connect_args["options"] = "-c statement_timeout=30000"  # 30s query timeout
+    
     engine_kwargs.update({
-        "pool_size": 5,            # Reduced for cloud DB limits
-        "max_overflow": 10,        # Extra connections when pool is exhausted
+        "pool_size": 3,            # Reduced for cloud DB limits (Render free tier)
+        "max_overflow": 5,         # Extra connections when pool is exhausted
         "pool_pre_ping": True,     # Verify connections before use (handles stale connections)
-        "pool_recycle": 300,       # Recycle connections every 5 min (Supabase timeout)
-        "pool_timeout": 30,        # Wait max 30s for connection
+        "pool_recycle": 180,       # Recycle connections every 3 min (cloud timeout)
+        "pool_timeout": 20,        # Wait max 20s for connection from pool
         "echo": False,             # Disable SQL logging for performance
+        "connect_args": connect_args,
     })
 
 engine = create_engine(DATABASE_URL, **engine_kwargs)

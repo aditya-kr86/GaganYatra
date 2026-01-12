@@ -18,6 +18,7 @@ import asyncio
 import logging
 import sys
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 # Add scripts folder to path for importing seed module
@@ -46,6 +47,26 @@ app.add_middleware(
 
 _sim_task = None
 _startup_complete = False
+
+
+def _create_tables_with_retry(max_retries: int = 3, retry_delay: float = 2.0):
+    """Create database tables with retry logic for connection timeouts."""
+    for attempt in range(max_retries):
+        try:
+            Base.metadata.create_all(bind=engine)
+            print("✅ Database tables created/verified successfully")
+            return True
+        except Exception as e:
+            if attempt < max_retries - 1:
+                wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                print(f"⚠️ DB connection attempt {attempt + 1} failed: {e}")
+                print(f"   Retrying in {wait_time:.1f}s...")
+                time.sleep(wait_time)
+            else:
+                print(f"❌ Failed to create tables after {max_retries} attempts: {e}")
+                # Don't raise - let the app start anyway, tables might already exist
+                return False
+    return False
 
 
 def _sync_run_seed_if_empty():
@@ -78,23 +99,36 @@ def _sync_run_seed_if_empty():
 
 @app.on_event("startup")
 async def create_tables_on_startup():
-    """Non-blocking startup - runs heavy operations in thread pool."""
+    """Non-blocking startup - runs ALL heavy operations in background."""
     global _startup_complete
     
-    # Create tables synchronously (fast operation)
-    Base.metadata.create_all(bind=engine)
-    
-    # Run seeding in background thread to not block startup
-    loop = asyncio.get_event_loop()
-    just_seeded = await loop.run_in_executor(_executor, _sync_run_seed_if_empty)
-    
-    # Skip seat reconciliation if we just seeded or run it in background
-    if not just_seeded:
-        # Run seat check in background - don't block startup
-        asyncio.create_task(_async_ensure_seats())
-    
+    # Mark startup complete immediately so port binding happens fast
+    # This prevents Render's "no open ports detected" timeout
     _startup_complete = True
-    print("🚀 Application started successfully!")
+    print("🚀 Application started - initializing database in background...")
+    
+    # Run ALL database operations in background task
+    asyncio.create_task(_background_db_init())
+
+
+async def _background_db_init():
+    """Initialize database in background after app has started."""
+    loop = asyncio.get_event_loop()
+    
+    try:
+        # Create tables with retry logic
+        await loop.run_in_executor(_executor, _create_tables_with_retry)
+        
+        # Run seeding if needed
+        just_seeded = await loop.run_in_executor(_executor, _sync_run_seed_if_empty)
+        
+        # Ensure seats exist
+        if not just_seeded:
+            await _async_ensure_seats()
+            
+        print("✅ Background database initialization complete!")
+    except Exception as e:
+        logging.error(f"Background DB init failed: {e}")
 
 
 async def _async_ensure_seats():
